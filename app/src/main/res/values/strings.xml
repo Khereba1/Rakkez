@@ -1,0 +1,108 @@
+<resources>
+    <string name="app_name">Rakkez</string>
+    <string name="developer_name" translatable="false">Khereba1</string>
+    <string name="developer_label">Developer</string>
+    <string name="language_label">Language</string>
+    <string name="lang_system">System</string>
+    <string name="lang_arabic">العربية</string>
+    <string name="lang_english">English</string>
+    <string name="error_log">Error log</string>
+    <string name="log_empty">The log is empty.</string>
+    <string name="clear_log">Clear</string>
+    <string name="show">Show</string>
+    <string name="hide">Hide</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+
+    <string name="tab_tasks">Tasks</string>
+    <string name="tab_focus">Focus</string>
+    <string name="tab_today">Today</string>
+    <string name="tab_settings">Settings</string>
+
+    <string name="tasks_summary">%1$s to do · %2$s done</string>
+    <string name="tasks_add_hint">Add a task…</string>
+    <string name="tasks_empty">Nothing here yet.\nAdd your first task above, then press ▶ to focus on it.</string>
+    <string name="tasks_done_header">Done (%1$s)</string>
+    <string name="task_edit_title">Edit task</string>
+    <string name="task_estimate">Planned sessions</string>
+
+    <string name="phase_idle">Ready</string>
+    <string name="phase_focus">Focus</string>
+    <string name="phase_short">Short break</string>
+    <string name="phase_long">Long break</string>
+    <string name="phase_ask">Session done</string>
+    <string name="focus_task_label">Working on</string>
+    <string name="focus_task_none">No specific task</string>
+    <string name="pick_task_title">Pick a task</string>
+    <string name="no_task_option">No specific task</string>
+    <string name="cycle_label">Session %1$s of %2$s</string>
+    <string name="extra_session">Bonus session</string>
+    <string name="btn_start">Start focus</string>
+    <string name="btn_pause">Pause</string>
+    <string name="btn_resume">Resume</string>
+    <string name="btn_stop">End</string>
+    <string name="btn_skip_break">Skip break</string>
+    <string name="stop_confirm_title">End this session?</string>
+    <string name="stop_confirm_text">The minutes you already worked will still be counted.</string>
+    <string name="today_so_far">Today: %1$s</string>
+
+    <string name="preset_classic">Classic</string>
+    <string name="preset_deep">Deep</string>
+    <string name="preset_sprint">Sprint</string>
+    <string name="preset_marathon">Marathon</string>
+    <string name="preset_custom">Custom</string>
+    <string name="custom_title">Custom timer</string>
+    <string name="focus_len">Focus length</string>
+    <string name="short_len">Short break</string>
+    <string name="long_len">Long break</string>
+    <string name="long_every">Sessions before long break</string>
+    <string name="unit_min">%1$s min</string>
+
+    <string name="idea_button">Distracted? Park the thought</string>
+    <string name="idea_title">Park it and keep going</string>
+    <string name="idea_hint">What popped into your head?</string>
+
+    <string name="ask_title">Session complete!</string>
+    <string name="ask_text">You have focused %1$s today. Want to finish what is in your hands with a few more minutes?</string>
+    <string name="ask_extra_label">A few more minutes</string>
+    <string name="ask_minutes_hint">Minutes</string>
+    <string name="ask_go">Go</string>
+    <string name="ask_break">Break (%1$s min)</string>
+    <string name="ask_finish">That is enough</string>
+
+    <string name="today_title">Today</string>
+    <string name="today_total">Focused today</string>
+    <string name="today_goal">Goal: %1$s</string>
+    <string name="stat_sessions">Sessions</string>
+    <string name="stat_done">Tasks done</string>
+    <string name="stat_ideas">Parked</string>
+    <string name="week_title">Last 7 days (minutes)</string>
+    <string name="ideas_title">Parked thoughts</string>
+    <string name="ideas_empty">Thoughts you park during focus show up here, so you can deal with them later.</string>
+    <string name="to_task">To task</string>
+    <string name="sessions_title">Today\'s sessions</string>
+
+    <string name="set_timer">Timer</string>
+    <string name="set_goal">Daily goal</string>
+    <string name="set_keep_screen">Keep screen on while focusing</string>
+
+    <string name="dur_m">%1$s m</string>
+    <string name="dur_h_m">%1$s h %2$s m</string>
+
+    <string name="channel_name">Timer alerts</string>
+    <string name="channel_desc">Tells you when a focus session or break ends.</string>
+    <string name="notif_focus_done_title">Session complete!</string>
+    <string name="notif_focus_done_text">Open Rakkez to take a break or add a few more minutes.</string>
+    <string name="notif_break_done_title">Break is over</string>
+    <string name="notif_break_done_text">Ready for the next focus session?</string>
+
+    <string name="widget_tasks_label">Rakkez · Tasks</string>
+    <string name="widget_focus_label">Rakkez · Focus</string>
+    <string name="widget_tasks_desc">Your next tasks and today\'s focus time.</string>
+    <string name="widget_focus_desc">Start or pause the timer and see today\'s total.</string>
+    <string name="widget_today">Focused today</string>
+    <string name="widget_open">Open</string>
+    <string name="widget_empty">No open tasks 🎉</string>
+    <string name="widget_more">+%1$s more</string>
+</resources>

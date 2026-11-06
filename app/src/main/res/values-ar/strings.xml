@@ -1,0 +1,107 @@
+<resources>
+    <string name="app_name">ركّز</string>
+    <string name="developer_label">المطوّر</string>
+    <string name="language_label">اللغة</string>
+    <string name="lang_system">النظام</string>
+    <string name="lang_arabic">العربية</string>
+    <string name="lang_english">English</string>
+    <string name="error_log">سجل الأخطاء</string>
+    <string name="log_empty">السجل فاضي.</string>
+    <string name="clear_log">مسح</string>
+    <string name="show">إظهار</string>
+    <string name="hide">إخفاء</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+
+    <string name="tab_tasks">المهام</string>
+    <string name="tab_focus">تركيز</string>
+    <string name="tab_today">النهارده</string>
+    <string name="tab_settings">الإعدادات</string>
+
+    <string name="tasks_summary">%1$s لسه · %2$s خلصانة</string>
+    <string name="tasks_add_hint">أضف مهمة…</string>
+    <string name="tasks_empty">مفيش حاجة هنا لسه.\nاكتب أول مهمة فوق، وبعدين دوس ▶ عشان تركّز عليها.</string>
+    <string name="tasks_done_header">خلصانة (%1$s)</string>
+    <string name="task_edit_title">تعديل المهمة</string>
+    <string name="task_estimate">عدد الجلسات المتوقع</string>
+
+    <string name="phase_idle">جاهز</string>
+    <string name="phase_focus">تركيز</string>
+    <string name="phase_short">استراحة قصيرة</string>
+    <string name="phase_long">استراحة طويلة</string>
+    <string name="phase_ask">الجلسة خلصت</string>
+    <string name="focus_task_label">شغّال على</string>
+    <string name="focus_task_none">من غير مهمة محددة</string>
+    <string name="pick_task_title">اختار مهمة</string>
+    <string name="no_task_option">من غير مهمة محددة</string>
+    <string name="cycle_label">جلسة %1$s من %2$s</string>
+    <string name="extra_session">جلسة إضافية</string>
+    <string name="btn_start">ابدأ التركيز</string>
+    <string name="btn_pause">إيقاف مؤقت</string>
+    <string name="btn_resume">كمّل</string>
+    <string name="btn_stop">إنهاء</string>
+    <string name="btn_skip_break">تخطّي الاستراحة</string>
+    <string name="stop_confirm_title">تنهي الجلسة؟</string>
+    <string name="stop_confirm_text">الدقايق اللي اشتغلتها هتتحسب برضه.</string>
+    <string name="today_so_far">النهارده: %1$s</string>
+
+    <string name="preset_classic">كلاسيك</string>
+    <string name="preset_deep">عميق</string>
+    <string name="preset_sprint">سريع</string>
+    <string name="preset_marathon">ماراثون</string>
+    <string name="preset_custom">مخصص</string>
+    <string name="custom_title">مؤقت مخصص</string>
+    <string name="focus_len">مدة التركيز</string>
+    <string name="short_len">الاستراحة القصيرة</string>
+    <string name="long_len">الاستراحة الطويلة</string>
+    <string name="long_every">جلسات قبل الاستراحة الطويلة</string>
+    <string name="unit_min">%1$s د</string>
+
+    <string name="idea_button">اتشتتّ؟ ركّن الفكرة</string>
+    <string name="idea_title">ركّنها هنا وكمّل</string>
+    <string name="idea_hint">إيه اللي جه في بالك؟</string>
+
+    <string name="ask_title">الجلسة خلصت!</string>
+    <string name="ask_text">ركّزت %1$s النهارده. تحب تكمّل اللي في إيدك بكام دقيقة كمان؟</string>
+    <string name="ask_extra_label">كام دقيقة كمان</string>
+    <string name="ask_minutes_hint">دقايق</string>
+    <string name="ask_go">ابدأ</string>
+    <string name="ask_break">استراحة (%1$s د)</string>
+    <string name="ask_finish">كفاية كده</string>
+
+    <string name="today_title">النهارده</string>
+    <string name="today_total">إجمالي التركيز النهارده</string>
+    <string name="today_goal">الهدف: %1$s</string>
+    <string name="stat_sessions">جلسات</string>
+    <string name="stat_done">مهام خلصت</string>
+    <string name="stat_ideas">أفكار مركّنة</string>
+    <string name="week_title">آخر 7 أيام (بالدقايق)</string>
+    <string name="ideas_title">الأفكار المركّنة</string>
+    <string name="ideas_empty">الأفكار اللي بتركّنها وقت التركيز بتظهر هنا، عشان تتعامل معاها بعدين.</string>
+    <string name="to_task">لمهمة</string>
+    <string name="sessions_title">جلسات النهارده</string>
+
+    <string name="set_timer">المؤقت</string>
+    <string name="set_goal">هدف اليوم</string>
+    <string name="set_keep_screen">سيب الشاشة شغّالة وقت التركيز</string>
+
+    <string name="dur_m">%1$s د</string>
+    <string name="dur_h_m">%1$s س %2$s د</string>
+
+    <string name="channel_name">تنبيهات المؤقت</string>
+    <string name="channel_desc">بتنبّهك لما جلسة التركيز أو الاستراحة تخلص.</string>
+    <string name="notif_focus_done_title">الجلسة خلصت!</string>
+    <string name="notif_focus_done_text">افتح ركّز عشان تاخد استراحة أو تضيف كام دقيقة كمان.</string>
+    <string name="notif_break_done_title">الاستراحة خلصت</string>
+    <string name="notif_break_done_text">جاهز للجلسة اللي بعدها؟</string>
+
+    <string name="widget_tasks_label">ركّز · المهام</string>
+    <string name="widget_focus_label">ركّز · التركيز</string>
+    <string name="widget_tasks_desc">مهامك الجاية ووقت تركيزك النهارده.</string>
+    <string name="widget_focus_desc">ابدأ المؤقت أو وقّفه وشوف إجمالي النهارده.</string>
+    <string name="widget_today">تركيز النهارده</string>
+    <string name="widget_open">افتح</string>
+    <string name="widget_empty">مفيش مهام مفتوحة 🎉</string>
+    <string name="widget_more">+%1$s كمان</string>
+</resources>

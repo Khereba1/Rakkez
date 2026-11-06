@@ -1,0 +1,11 @@
+<resources>
+    <color name="window_bg">#0D1015</color>
+    <color name="ic_launcher_background">#0D1015</color>
+    <color name="w_bg">#151A21</color>
+    <color name="w_stroke">#262E38</color>
+    <color name="w_text">#ECE8DF</color>
+    <color name="w_sub">#9AA3AE</color>
+    <color name="w_accent">#FFB547</color>
+    <color name="w_accent_text">#FFB547</color>
+    <color name="w_on_accent">#1A1100</color>
+</resources>
