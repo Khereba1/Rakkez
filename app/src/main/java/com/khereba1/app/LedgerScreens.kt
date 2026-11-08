@@ -182,11 +182,6 @@ fun NewLedgerDialog(onDismiss: () -> Unit, onCreate: (Int, String) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var name by remember { mutableStateOf("") }
     var kind by remember { mutableStateOf(LedgerTemplates.FACTORY) }
-    val desc = when (kind) {
-        LedgerTemplates.FACTORY -> stringResource(R.string.tpl_factory_desc)
-        LedgerTemplates.HOME -> stringResource(R.string.tpl_home_desc)
-        else -> stringResource(R.string.tpl_blank_desc)
-    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.new_ledger)) },
@@ -199,12 +194,29 @@ fun NewLedgerDialog(onDismiss: () -> Unit, onCreate: (Int, String) -> Unit) {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill(stringResource(R.string.tpl_factory), kind == LedgerTemplates.FACTORY, { kind = LedgerTemplates.FACTORY })
-                    Pill(stringResource(R.string.tpl_home), kind == LedgerTemplates.HOME, { kind = LedgerTemplates.HOME })
-                    Pill(stringResource(R.string.tpl_blank), kind == LedgerTemplates.BLANK, { kind = LedgerTemplates.BLANK })
+                for (k in listOf(LedgerTemplates.FACTORY, LedgerTemplates.HOME, LedgerTemplates.BLANK)) {
+                    val tn = when (k) {
+                        LedgerTemplates.FACTORY -> stringResource(R.string.tpl_factory)
+                        LedgerTemplates.HOME -> stringResource(R.string.tpl_home)
+                        else -> stringResource(R.string.tpl_blank)
+                    }
+                    val td = when (k) {
+                        LedgerTemplates.FACTORY -> stringResource(R.string.tpl_factory_desc)
+                        LedgerTemplates.HOME -> stringResource(R.string.tpl_home_desc)
+                        else -> stringResource(R.string.tpl_blank_desc)
+                    }
+                    val sel = kind == k
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .panel(if (sel) cs.primaryContainer else cs.surfaceVariant, 16.dp)
+                            .clickable { kind = k }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Text(tn, color = if (sel) cs.onPrimaryContainer else cs.onSurface, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(td, color = if (sel) cs.onPrimaryContainer else cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
+                    }
                 }
-                Text(desc, color = cs.onSurfaceVariant, fontSize = 13.sp, lineHeight = 20.sp)
             }
         },
         confirmButton = { TextButton(onClick = { onCreate(kind, name) }) { Text(stringResource(R.string.create)) } },
@@ -361,13 +373,7 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
         if (tbl == null) {
             Text(stringResource(R.string.no_tables), color = cs.onSurfaceVariant, modifier = Modifier.padding(24.dp))
         } else {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+            Wrap(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 for ((i, t) in l.tables.withIndex()) {
                     val n = l.entries.count { it.batchId == batch.id && it.tableId == t.id }
                     Pill(t.name + " · " + n.toString(), i == tableIdx.coerceIn(0, l.tables.size - 1), { tableIdx = i })
@@ -394,6 +400,16 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
                 }
                 items(entries, key = { it.id }) { e ->
                     EntryRow(l, tbl, e) { if (!closed) entryTarget = e }
+                }
+                if (!closed) {
+                    item(key = "addbtn") {
+                        Button(
+                            onClick = { newEntry = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = cs.primaryContainer, contentColor = cs.onPrimaryContainer),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(46.dp),
+                        ) { Text(stringResource(R.string.add_entry, tbl.name), fontWeight = FontWeight.Bold) }
+                    }
                 }
                 item(key = "totalbar") {
                     val parts = ArrayList<String>()
@@ -991,7 +1007,7 @@ fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Wrap {
                     Pill(stringResource(R.string.kind_text), kind == COL_TEXT, { kind = COL_TEXT })
                     Pill(stringResource(R.string.kind_number), kind == COL_NUMBER, { kind = COL_NUMBER })
                     Pill(stringResource(R.string.kind_money), kind == COL_MONEY, { kind = COL_MONEY })
@@ -1002,11 +1018,11 @@ fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int,
                     if (numeric.size < 2) {
                         Text(stringResource(R.string.calc_need_two), color = cs.error, fontSize = 13.sp)
                     } else {
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Wrap {
                             for (c in numeric) Pill(c.name, refA == c.id, { refA = c.id })
                         }
                         Text("×", color = cs.onSurfaceVariant, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Wrap {
                             for (c in numeric) Pill(c.name, refB == c.id, { refB = c.id })
                         }
                     }
@@ -1057,7 +1073,7 @@ fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, L
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(stringResource(R.string.line_pick_table), color = cs.onSurfaceVariant, fontSize = 13.sp)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Wrap {
                     for (t in ledger.tables) Pill(t.name, tableId == t.id, {
                         tableId = t.id
                         colId = 0L
@@ -1065,7 +1081,7 @@ fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, L
                 }
                 if (table != null) {
                     Text(stringResource(R.string.line_pick_column), color = cs.onSurfaceVariant, fontSize = 13.sp)
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Wrap {
                         for (c in numeric) Pill(c.name, colId == c.id, { colId = c.id })
                     }
                 }

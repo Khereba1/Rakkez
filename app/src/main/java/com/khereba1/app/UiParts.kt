@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -232,5 +233,57 @@ fun GearButton(onClick: () -> Unit) {
             drawCircle(c, size.width * 0.14f, Offset(size.width * 0.65f, size.height * 0.30f))
             drawCircle(c, size.width * 0.14f, Offset(size.width * 0.35f, size.height * 0.70f))
         }
+    }
+}
+
+/** Simple wrapping row: children flow onto the next line instead of overflowing the screen. */
+@Composable
+fun Wrap(modifier: Modifier = Modifier, gap: Dp = 8.dp, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val g = gap.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val placeables = measurables.map { m -> m.measure(loose) }
+        val maxW = constraints.maxWidth
+        val xs = IntArray(placeables.size)
+        val ys = IntArray(placeables.size)
+        var x = 0
+        var y = 0
+        var rowH = 0
+        var width = 0
+        for (i in placeables.indices) {
+            val pl = placeables[i]
+            if (x > 0 && x + pl.width > maxW) {
+                x = 0
+                y += rowH + g
+                rowH = 0
+            }
+            xs[i] = x
+            ys[i] = y
+            x += pl.width + g
+            if (pl.height > rowH) rowH = pl.height
+            if (x - g > width) width = x - g
+        }
+        val h = (y + rowH).coerceAtLeast(constraints.minHeight)
+        layout(width.coerceAtMost(maxW), h) {
+            for (i in placeables.indices) placeables[i].placeRelative(xs[i], ys[i])
+        }
+    }
+}
+
+/** A full-width row with a round check on the start, a label and a small detail on the end. */
+@Composable
+fun CheckRow(label: String, detail: String, checked: Boolean, onToggle: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onToggle)
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RkCheck(checked, onToggle)
+        Text(label, Modifier.weight(1f), color = cs.onSurface, fontSize = 15.sp)
+        Text(detail, color = cs.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(end = 8.dp))
     }
 }

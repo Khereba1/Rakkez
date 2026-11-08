@@ -343,7 +343,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createLedger(kind: Int, name: String) {
         val clean = name.trim().take(60)
-        val finalName = if (clean.isEmpty()) app.getString(R.string.ledger_default_name) else clean
+        val finalName = if (clean.isEmpty()) LocaleHelper.wrap(app).getString(R.string.ledger_default_name) else clean
         val l = LedgerTemplates.create(app, kind, finalName)
         LedgerStore.update(app) { list -> list + l }
         ledgers = LedgerStore.load(app)
@@ -380,8 +380,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val n = name.trim().take(40)
         if (n.isEmpty()) return
         val cols = listOf(
-            ColumnDef(Store.newId(), app.getString(R.string.col_item), COL_TEXT),
-            ColumnDef(Store.newId(), app.getString(R.string.col_amount), COL_MONEY),
+            ColumnDef(Store.newId(), LocaleHelper.wrap(app).getString(R.string.col_item), COL_TEXT),
+            ColumnDef(Store.newId(), LocaleHelper.wrap(app).getString(R.string.col_amount), COL_MONEY),
         )
         mutateLedger(ledgerId) { l -> l.copy(tables = l.tables + TableDef(Store.newId(), n, cols)) }
     }
@@ -448,7 +448,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun settle(ledgerId: Long, batchId: Long, carry: Boolean, newName: String) {
         val l = ledgers.firstOrNull { it.id == ledgerId } ?: return
         val b = l.batches.firstOrNull { it.id == batchId } ?: return
-        val text = LedgerCalc.fullText(l, b, app.getString(R.string.opening_balance))
+        val text = LedgerCalc.fullText(l, b, LocaleHelper.wrap(app).getString(R.string.opening_balance))
         val bal = LedgerCalc.balance(l, b)
         val now = System.currentTimeMillis()
         val clean = newName.trim().take(40)
@@ -488,7 +488,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun runBackup(basic: Boolean, ledger: Boolean) {
         if (backupBusy) return
         if (!basic && !ledger) {
-            backupMsg = app.getString(R.string.backup_pick_something)
+            backupMsg = LocaleHelper.wrap(app).getString(R.string.backup_pick_something)
             return
         }
         backupBusy = true
@@ -497,10 +497,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val msg = withContext(Dispatchers.IO) {
                 try {
                     val name = Backup.create(app, basic, ledger, false)
-                    app.getString(R.string.backup_done, name)
+                    LocaleHelper.wrap(app).getString(R.string.backup_done, name)
                 } catch (e: Throwable) {
                     AppLog.log("BACKUP", "Backup failed", e)
-                    app.getString(R.string.backup_failed)
+                    LocaleHelper.wrap(app).getString(R.string.backup_failed)
                 }
             }
             backupMsg = msg
@@ -512,7 +512,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val info = withContext(Dispatchers.IO) { Backup.readInfo(app, uri) }
             if (info == null) {
-                backupMsg = app.getString(R.string.restore_bad_file)
+                backupMsg = LocaleHelper.wrap(app).getString(R.string.restore_bad_file)
             } else {
                 restoreUri = uri
                 restoreInfo = info
@@ -534,7 +534,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             refreshAll(true)
             ledgers = LedgerStore.load(app)
             closeLedgerView()
-            backupMsg = app.getString(if (ok) R.string.restore_done else R.string.restore_failed)
+            backupMsg = LocaleHelper.wrap(app).getString(if (ok) R.string.restore_done else R.string.restore_failed)
         }
     }
 

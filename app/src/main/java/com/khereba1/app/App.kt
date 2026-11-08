@@ -114,5 +114,6 @@ fun fmtMinutes(c: Context, totalMin: Long): String {
     val m = if (totalMin < 0L) 0L else totalMin
     val h = (m / 60L).toInt()
     val r = (m % 60L).toInt()
-    return if (h > 0) c.getString(R.string.dur_h_m, h.toString(), r.toString()) else c.getString(R.string.dur_m, r.toString())
+    val lc = LocaleHelper.wrap(c)
+    return if (h > 0) lc.getString(R.string.dur_h_m, h.toString(), r.toString()) else lc.getString(R.string.dur_m, r.toString())
 }

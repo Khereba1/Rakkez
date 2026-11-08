@@ -242,4 +242,5 @@
     <string name="balance_remaining">المتبقي</string>
     <string name="balance_left">الباقي</string>
     <string name="balance_total">الإجمالي</string>
+    <string name="add_entry">إضافة قيد في %1$s</string>
 </resources>

@@ -417,51 +417,51 @@ object LedgerTemplates {
 
     fun create(c: Context, kind: Int, name: String): Ledger {
         val now = System.currentTimeMillis()
-        val batch = Batch(Store.newId(), c.getString(R.string.batch_first), now)
-        val unit = c.getString(R.string.currency_unit)
+        val batch = Batch(Store.newId(), LocaleHelper.wrap(c).getString(R.string.batch_first), now)
+        val unit = LocaleHelper.wrap(c).getString(R.string.currency_unit)
         when (kind) {
             FACTORY -> {
-                val cBags = ColumnDef(Store.newId(), c.getString(R.string.col_bags), COL_NUMBER)
-                val cNote1 = ColumnDef(Store.newId(), c.getString(R.string.col_note), COL_TEXT)
-                val tWool = TableDef(Store.newId(), c.getString(R.string.tbl_wool), listOf(cBags, cNote1))
+                val cBags = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_bags), COL_NUMBER)
+                val cNote1 = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_note), COL_TEXT)
+                val tWool = TableDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.tbl_wool), listOf(cBags, cNote1))
 
-                val cType = ColumnDef(Store.newId(), c.getString(R.string.col_type), COL_TEXT)
-                val cQty = ColumnDef(Store.newId(), c.getString(R.string.col_pieces), COL_NUMBER)
-                val cPrice = ColumnDef(Store.newId(), c.getString(R.string.col_price), COL_MONEY, sumIt = false)
-                val cTotal = ColumnDef(Store.newId(), c.getString(R.string.col_total), COL_CALC, true, cQty.id, cPrice.id)
-                val tDeliver = TableDef(Store.newId(), c.getString(R.string.tbl_deliver), listOf(cType, cQty, cPrice, cTotal))
+                val cType = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_type), COL_TEXT)
+                val cQty = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_pieces), COL_NUMBER)
+                val cPrice = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_price), COL_MONEY, sumIt = false)
+                val cTotal = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_total), COL_CALC, true, cQty.id, cPrice.id)
+                val tDeliver = TableDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.tbl_deliver), listOf(cType, cQty, cPrice, cTotal))
 
-                val cAmount = ColumnDef(Store.newId(), c.getString(R.string.col_amount), COL_MONEY)
-                val cNote2 = ColumnDef(Store.newId(), c.getString(R.string.col_note), COL_TEXT)
-                val tMoney = TableDef(Store.newId(), c.getString(R.string.tbl_money), listOf(cAmount, cNote2))
+                val cAmount = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_amount), COL_MONEY)
+                val cNote2 = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_note), COL_TEXT)
+                val tMoney = TableDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.tbl_money), listOf(cAmount, cNote2))
 
                 val lines = listOf(
-                    SummaryLine(Store.newId(), c.getString(R.string.line_bags), tWool.id, cBags.id, 0, false),
-                    SummaryLine(Store.newId(), c.getString(R.string.line_pieces), tDeliver.id, cQty.id, 0, false),
-                    SummaryLine(Store.newId(), c.getString(R.string.line_due), tDeliver.id, cTotal.id, 1, true),
-                    SummaryLine(Store.newId(), c.getString(R.string.line_received), tMoney.id, cAmount.id, -1, true),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_bags), tWool.id, cBags.id, 0, false),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_pieces), tDeliver.id, cQty.id, 0, false),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_due), tDeliver.id, cTotal.id, 1, true),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_received), tMoney.id, cAmount.id, -1, true),
                 )
-                return Ledger(Store.newId(), name, unit, c.getString(R.string.balance_remaining), listOf(tWool, tDeliver, tMoney), lines, listOf(batch), emptyList())
+                return Ledger(Store.newId(), name, unit, LocaleHelper.wrap(c).getString(R.string.balance_remaining), listOf(tWool, tDeliver, tMoney), lines, listOf(batch), emptyList())
             }
             HOME -> {
-                val cSrc = ColumnDef(Store.newId(), c.getString(R.string.col_source), COL_TEXT)
-                val cInc = ColumnDef(Store.newId(), c.getString(R.string.col_amount), COL_MONEY)
-                val tInc = TableDef(Store.newId(), c.getString(R.string.tbl_income), listOf(cSrc, cInc))
-                val cItem = ColumnDef(Store.newId(), c.getString(R.string.col_item), COL_TEXT)
-                val cExp = ColumnDef(Store.newId(), c.getString(R.string.col_amount), COL_MONEY)
-                val tExp = TableDef(Store.newId(), c.getString(R.string.tbl_expense), listOf(cItem, cExp))
+                val cSrc = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_source), COL_TEXT)
+                val cInc = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_amount), COL_MONEY)
+                val tInc = TableDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.tbl_income), listOf(cSrc, cInc))
+                val cItem = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_item), COL_TEXT)
+                val cExp = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_amount), COL_MONEY)
+                val tExp = TableDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.tbl_expense), listOf(cItem, cExp))
                 val lines = listOf(
-                    SummaryLine(Store.newId(), c.getString(R.string.line_income), tInc.id, cInc.id, 1, true),
-                    SummaryLine(Store.newId(), c.getString(R.string.line_expense), tExp.id, cExp.id, -1, true),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_income), tInc.id, cInc.id, 1, true),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_expense), tExp.id, cExp.id, -1, true),
                 )
-                return Ledger(Store.newId(), name, unit, c.getString(R.string.balance_left), listOf(tInc, tExp), lines, listOf(batch), emptyList())
+                return Ledger(Store.newId(), name, unit, LocaleHelper.wrap(c).getString(R.string.balance_left), listOf(tInc, tExp), lines, listOf(batch), emptyList())
             }
             else -> {
-                val cItem = ColumnDef(Store.newId(), c.getString(R.string.col_item), COL_TEXT)
-                val cAmt = ColumnDef(Store.newId(), c.getString(R.string.col_amount), COL_MONEY)
-                val t = TableDef(Store.newId(), c.getString(R.string.tbl_default), listOf(cItem, cAmt))
-                val lines = listOf(SummaryLine(Store.newId(), c.getString(R.string.line_total), t.id, cAmt.id, 1, true))
-                return Ledger(Store.newId(), name, unit, c.getString(R.string.balance_total), listOf(t), lines, listOf(batch), emptyList())
+                val cItem = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_item), COL_TEXT)
+                val cAmt = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_amount), COL_MONEY)
+                val t = TableDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.tbl_default), listOf(cItem, cAmt))
+                val lines = listOf(SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_total), t.id, cAmt.id, 1, true))
+                return Ledger(Store.newId(), name, unit, LocaleHelper.wrap(c).getString(R.string.balance_total), listOf(t), lines, listOf(batch), emptyList())
             }
         }
     }

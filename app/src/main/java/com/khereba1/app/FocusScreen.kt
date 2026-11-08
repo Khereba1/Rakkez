@@ -168,8 +168,8 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
                 lit = accent,
                 dim = cs.outlineVariant,
                 modifier = Modifier
-                    .widthIn(max = 260.dp)
-                    .fillMaxWidth(0.68f)
+                    .widthIn(max = 300.dp)
+                    .fillMaxWidth(0.8f)
                     .aspectRatio(1f),
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -177,10 +177,10 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
                         timeText,
                         style = TextStyle(
                             color = cs.onSurface,
-                            fontSize = 50.sp,
+                            fontSize = 44.sp,
                             fontWeight = FontWeight.Light,
                             fontFeatureSettings = "tnum",
-                            letterSpacing = 1.sp,
+                            letterSpacing = 0.sp,
                         ),
                     )
                     Text(subText, color = cs.onSurfaceVariant, fontSize = 13.sp)

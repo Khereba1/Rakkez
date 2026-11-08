@@ -53,7 +53,7 @@ object Widgets {
         val c = LocaleHelper.wrap(c0)
         val rv = RemoteViews(c.packageName, R.layout.widget_tasks)
         val open = Store.loadTasks(c0).filter { !it.done }
-        rv.setTextViewText(R.id.w_title, c.getString(R.string.app_name))
+        rv.setTextViewText(R.id.w_title, LocaleHelper.wrap(c).getString(R.string.app_name))
         rv.setTextViewText(R.id.w_today, fmtMinutes(c, Store.todayMs(c0) / 60000L))
         val rows = intArrayOf(R.id.w_row1, R.id.w_row2, R.id.w_row3, R.id.w_row4)
         val checks = intArrayOf(R.id.w_check1, R.id.w_check2, R.id.w_check3, R.id.w_check4)
@@ -72,13 +72,13 @@ object Widgets {
         }
         if (open.isEmpty()) {
             rv.setViewVisibility(R.id.w_empty, View.VISIBLE)
-            rv.setTextViewText(R.id.w_empty, c.getString(R.string.widget_empty))
+            rv.setTextViewText(R.id.w_empty, LocaleHelper.wrap(c).getString(R.string.widget_empty))
         } else {
             rv.setViewVisibility(R.id.w_empty, View.GONE)
         }
         if (open.size > 4) {
             rv.setViewVisibility(R.id.w_more, View.VISIBLE)
-            rv.setTextViewText(R.id.w_more, c.getString(R.string.widget_more, (open.size - 4).toString()))
+            rv.setTextViewText(R.id.w_more, LocaleHelper.wrap(c).getString(R.string.widget_more, (open.size - 4).toString()))
         } else {
             rv.setViewVisibility(R.id.w_more, View.GONE)
         }
@@ -101,33 +101,33 @@ object Widgets {
             PH_ASK -> R.string.phase_ask
             else -> R.string.phase_idle
         }
-        rv.setTextViewText(R.id.f_state, c.getString(stateRes))
+        rv.setTextViewText(R.id.f_state, LocaleHelper.wrap(c).getString(stateRes))
         if (active) {
             val rem = s.remaining(System.currentTimeMillis())
             rv.setViewVisibility(R.id.f_chrono, View.VISIBLE)
             rv.setViewVisibility(R.id.f_total, View.GONE)
             rv.setChronometerCountDown(R.id.f_chrono, true)
             rv.setChronometer(R.id.f_chrono, SystemClock.elapsedRealtime() + rem, null, s.running)
-            rv.setTextViewText(R.id.f_sub, c.getString(R.string.today_so_far, todayText))
+            rv.setTextViewText(R.id.f_sub, LocaleHelper.wrap(c).getString(R.string.today_so_far, todayText))
         } else {
             rv.setViewVisibility(R.id.f_chrono, View.GONE)
             rv.setViewVisibility(R.id.f_total, View.VISIBLE)
             rv.setTextViewText(R.id.f_total, todayText)
-            rv.setTextViewText(R.id.f_sub, c.getString(R.string.widget_today))
+            rv.setTextViewText(R.id.f_sub, LocaleHelper.wrap(c).getString(R.string.widget_today))
         }
         val label: String
         val pi: PendingIntent
         if (s.phase == PH_ASK) {
-            label = c.getString(R.string.widget_open)
+            label = LocaleHelper.wrap(c).getString(R.string.widget_open)
             pi = openApp(c, 1, false, 40)
         } else if (s.phase == PH_IDLE) {
-            label = c.getString(R.string.btn_start)
+            label = LocaleHelper.wrap(c).getString(R.string.btn_start)
             pi = timerPi(c)
         } else if (s.running) {
-            label = c.getString(R.string.btn_pause)
+            label = LocaleHelper.wrap(c).getString(R.string.btn_pause)
             pi = timerPi(c)
         } else {
-            label = c.getString(R.string.btn_resume)
+            label = LocaleHelper.wrap(c).getString(R.string.btn_resume)
             pi = timerPi(c)
         }
         rv.setTextViewText(R.id.f_action, label)

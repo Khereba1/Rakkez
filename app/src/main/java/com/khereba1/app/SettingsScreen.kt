@@ -80,7 +80,7 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit) {
             Column(Modifier.fillMaxWidth().panel(cs.surface, 20.dp).padding(16.dp)) {
                 Text(stringResource(R.string.language_label), color = cs.onSurfaceVariant, fontSize = 13.sp)
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Wrap {
                     Pill(stringResource(R.string.lang_system), lang == "system", { onLanguage("system") })
                     Pill(stringResource(R.string.lang_arabic), lang == "ar", { onLanguage("ar") })
                     Pill(stringResource(R.string.lang_english), lang == "en", { onLanguage("en") })
@@ -119,20 +119,16 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit) {
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(stringResource(R.string.backup_include), color = cs.onSurfaceVariant, fontSize = 13.sp)
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill(stringResource(R.string.backup_basic) + " · " + basicSize, bkBasic, { bkBasic = !bkBasic })
-                    Pill(stringResource(R.string.backup_ledger) + " · " + ledgerSize, bkLedger, { bkLedger = !bkLedger })
-                }
-                Spacer(Modifier.height(10.dp))
+                CheckRow(stringResource(R.string.backup_basic), basicSize, bkBasic) { bkBasic = !bkBasic }
+                CheckRow(stringResource(R.string.backup_ledger), ledgerSize, bkLedger) { bkLedger = !bkLedger }
+                Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = { vm.runBackup(bkBasic, bkLedger) },
                     enabled = !vm.backupBusy,
                     colors = ButtonDefaults.buttonColors(containerColor = cs.primary, contentColor = cs.onPrimary),
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
                 ) { Text(stringResource(if (vm.backupBusy) R.string.backup_working else R.string.backup_now), fontWeight = FontWeight.Bold) }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
+                TextButton(
                     onClick = {
                         try {
                             picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
@@ -140,13 +136,11 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit) {
                             AppLog.log("BACKUP", "Picker failed", e)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
                 ) { Text(stringResource(R.string.restore_button)) }
                 if (vm.backupMsg.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     Text(vm.backupMsg, color = cs.primary, fontSize = 13.sp, lineHeight = 19.sp)
                 }
-                Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.auto_backup), color = cs.onSurface, fontSize = 15.sp)
@@ -222,10 +216,8 @@ fun RestoreDialog(vm: MainViewModel) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.restore_warn), color = cs.onSurface, fontSize = 14.sp, lineHeight = 21.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (info.basic) Pill(stringResource(R.string.backup_basic), useBasic, { useBasic = !useBasic })
-                    if (info.ledger) Pill(stringResource(R.string.backup_ledger), useLedger, { useLedger = !useLedger })
-                }
+                if (info.basic) CheckRow(stringResource(R.string.backup_basic), "", useBasic) { useBasic = !useBasic }
+                if (info.ledger) CheckRow(stringResource(R.string.backup_ledger), "", useLedger) { useLedger = !useLedger }
             }
         },
         confirmButton = {
