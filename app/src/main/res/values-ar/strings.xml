@@ -261,4 +261,5 @@
     <string name="row_top">الصف اللي فوق</string>
     <string name="row_bottom">جنب الرصيد</string>
     <string name="batch_rename">تغيير اسم الدفعة</string>
+    <string name="table_no_columns">الجدول ده مفيهوش أعمدة لسه. ضيف الأعمدة اللي عاوز تسجّلها (التاريخ تلقائي؛ ضيف مثلًا شكاير، ملاحظات...).</string>
 </resources>

@@ -262,4 +262,5 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="row_top">Top row</string>
     <string name="row_bottom">With the balance</string>
     <string name="batch_rename">Rename batch</string>
+    <string name="table_no_columns">This table has no columns yet. Add the columns you want to record (e.g. Date is automatic; add Bags, Notes...).</string>
 </resources>

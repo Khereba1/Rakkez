@@ -65,6 +65,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var ticker: Job? = null
 
     init {
+        // a task picked in an earlier run is not kept: every fresh start begins with "no specific task"
+        val t0 = Engine.load(app)
+        if (t0.phase == PH_IDLE && t0.taskId != 0L) Engine.selectTask(app, 0L)
         refreshAll(false)
         ledgers = LedgerStore.load(app)
         viewModelScope.launch(Dispatchers.IO) { Backup.autoIfDue(app) }
@@ -161,6 +164,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleTask(id: Long) {
         Store.toggleTask(app, id)
         refreshAll(true)
+        val sel = tasks.firstOrNull { it.id == timer.taskId }
+        if (sel != null && sel.done && timer.phase == PH_IDLE) {
+            Engine.selectTask(app, 0L)
+            refreshAll(true)
+        }
     }
 
     fun selectTask(id: Long) {
@@ -383,11 +391,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addTable(ledgerId: Long, name: String) {
         val n = name.trim().take(40)
         if (n.isEmpty()) return
-        val cols = listOf(
-            ColumnDef(Store.newId(), LocaleHelper.wrap(app).getString(R.string.col_item), COL_TEXT),
-            ColumnDef(Store.newId(), LocaleHelper.wrap(app).getString(R.string.col_amount), COL_MONEY),
-        )
-        mutateLedger(ledgerId) { l -> l.copy(tables = l.tables + TableDef(Store.newId(), n, cols)) }
+        mutateLedger(ledgerId) { l -> l.copy(tables = l.tables + TableDef(Store.newId(), n, emptyList())) }
     }
 
     fun deleteTable(ledgerId: Long, tableId: Long) {
@@ -406,11 +410,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         mutateLedger(ledgerId) { l -> l.copy(tables = l.tables.map { t -> if (t.id == tableId) t.copy(name = n) else t }) }
     }
 
-    fun addColumn(ledgerId: Long, tableId: Long, name: String, kind: Int, sumIt: Boolean, refA: Long, refB: Long) {
+    fun addColumn(ledgerId: Long, tableId: Long, name: String, kind: Int, sumIt: Boolean, refA: Long, refB: Long, def: String) {
         val n = name.trim().take(30)
         if (n.isEmpty()) return
         if (kind == COL_CALC && (refA == 0L || refB == 0L)) return
-        val col = ColumnDef(Store.newId(), n, kind, sumIt, refA, refB)
+        val col = ColumnDef(Store.newId(), n, kind, sumIt, refA, refB, if (kind == COL_CALC) "" else def.trim().take(40))
         mutateLedger(ledgerId) { l -> l.copy(tables = l.tables.map { t -> if (t.id == tableId) t.copy(columns = t.columns + col) else t }) }
     }
 
@@ -461,6 +465,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val n = name.trim().take(40)
         if (n.isEmpty()) return
         mutateLedger(ledgerId) { l -> l.copy(batches = l.batches.map { b -> if (b.id == batchId) b.copy(name = n) else b }) }
+    }
+
+    private fun <T> moved(list: List<T>, idx: Int, dir: Int): List<T> {
+        val j = idx + dir
+        if (idx < 0 || j < 0 || j >= list.size) return list
+        val m = list.toMutableList()
+        val t = m[idx]
+        m[idx] = m[j]
+        m[j] = t
+        return m
+    }
+
+    fun moveLine(ledgerId: Long, lineId: Long, dir: Int) {
+        mutateLedger(ledgerId) { l -> l.copy(lines = moved(l.lines, l.lines.indexOfFirst { it.id == lineId }, dir)) }
+    }
+
+    fun moveTable(ledgerId: Long, tableId: Long, dir: Int) {
+        mutateLedger(ledgerId) { l -> l.copy(tables = moved(l.tables, l.tables.indexOfFirst { it.id == tableId }, dir)) }
+    }
+
+    fun moveColumn(ledgerId: Long, tableId: Long, colId: Long, dir: Int) {
+        mutateLedger(ledgerId) { l ->
+            l.copy(
+                tables = l.tables.map { t ->
+                    if (t.id == tableId) t.copy(columns = moved(t.columns, t.columns.indexOfFirst { it.id == colId }, dir)) else t
+                },
+            )
+        }
     }
 
     fun deleteLine(ledgerId: Long, lineId: Long) {

@@ -929,7 +929,12 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
                                 .clickable { renameTable = t }
                                 .padding(vertical = 6.dp),
                         )
+                        MiniBtn("\u25B2") { vm.moveTable(l.id, t.id, -1) }
+                        MiniBtn("\u25BC") { vm.moveTable(l.id, t.id, 1) }
                         TextButton(onClick = { confirmDeleteTable = t }) { Text(stringResource(R.string.delete), color = cs.error) }
+                    }
+                    if (t.columns.isEmpty()) {
+                        Text(stringResource(R.string.table_no_columns), color = cs.onSurfaceVariant, fontSize = 13.sp, lineHeight = 19.sp)
                     }
                     for (c in t.columns) {
                         val kindText = when (c.kind) {
@@ -948,8 +953,10 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
                                     .clickable { editColumnOf = Pair(t, c) }
                                     .padding(vertical = 10.dp),
                             )
-                            TextButton(onClick = { editColumnOf = Pair(t, c) }) { Text("\u270E", color = cs.onSurfaceVariant) }
-                            TextButton(onClick = { vm.deleteColumn(l.id, t.id, c.id) }) { Text("✕", color = cs.onSurfaceVariant) }
+                            MiniBtn("\u25B2") { vm.moveColumn(l.id, t.id, c.id, -1) }
+                            MiniBtn("\u25BC") { vm.moveColumn(l.id, t.id, c.id, 1) }
+                            MiniBtn("\u270E") { editColumnOf = Pair(t, c) }
+                            MiniBtn("\u2715") { vm.deleteColumn(l.id, t.id, c.id) }
                         }
                     }
                     TextButton(onClick = { addColumnTo = t }) { Text(stringResource(R.string.add_column)) }
@@ -964,17 +971,23 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
                     val c = t?.columns?.firstOrNull { it.id == line.colId }
                     val signText = if (line.sign > 0) "+" else if (line.sign < 0) "−" else "·"
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            signText + "  " + line.label + "  ←  " + (t?.name ?: "?") + " / " + (c?.name ?: "?"),
-                            color = cs.onSurface,
-                            fontSize = 14.sp,
-                            modifier = Modifier
+                        Column(
+                            Modifier
                                 .weight(1f)
                                 .clickable { editLineOf = line }
-                                .padding(vertical = 10.dp),
-                        )
-                        TextButton(onClick = { editLineOf = line }) { Text("\u270E", color = cs.onSurfaceVariant) }
-                        TextButton(onClick = { vm.deleteLine(l.id, line.id) }) { Text("✕", color = cs.onSurfaceVariant) }
+                                .padding(vertical = 8.dp),
+                        ) {
+                            Text(signText + "  " + line.label, color = cs.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                (t?.name ?: "?") + " / " + (c?.name ?: "?") + " \u00B7 " + stringResource(if (line.row == 1) R.string.row_bottom else R.string.row_top),
+                                color = cs.onSurfaceVariant,
+                                fontSize = 12.sp,
+                            )
+                        }
+                        MiniBtn("\u25B2") { vm.moveLine(l.id, line.id, -1) }
+                        MiniBtn("\u25BC") { vm.moveLine(l.id, line.id, 1) }
+                        MiniBtn("\u270E") { editLineOf = line }
+                        MiniBtn("\u2715") { vm.deleteLine(l.id, line.id) }
                     }
                 }
                 TextButton(onClick = { addLine = true }) { Text(stringResource(R.string.add_line)) }
@@ -1000,8 +1013,8 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
         AddColumnDialog(
             table = ac,
             onDismiss = { addColumnTo = null },
-            onAdd = { n, kind, sumIt, a, b ->
-                vm.addColumn(l.id, ac.id, n, kind, sumIt, a, b)
+            onAdd = { n, kind, sumIt, a, b, d ->
+                vm.addColumn(l.id, ac.id, n, kind, sumIt, a, b, d)
                 addColumnTo = null
             },
         )
@@ -1062,13 +1075,14 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
 }
 
 @Composable
-fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int, Boolean, Long, Long) -> Unit) {
+fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int, Boolean, Long, Long, String) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var name by remember { mutableStateOf("") }
     var kind by remember { mutableStateOf(COL_TEXT) }
     var sumIt by remember { mutableStateOf(true) }
     var refA by remember { mutableStateOf(0L) }
     var refB by remember { mutableStateOf(0L) }
+    var defVal by remember { mutableStateOf("") }
     val numeric = table.columns.filter { it.kind == COL_NUMBER || it.kind == COL_MONEY }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1107,6 +1121,17 @@ fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int,
                         }
                     }
                 }
+                if (kind != COL_CALC) {
+                    OutlinedTextField(
+                        value = defVal,
+                        onValueChange = { defVal = it },
+                        label = { Text(stringResource(R.string.col_default)) },
+                        singleLine = true,
+                        keyboardOptions = if (kind == COL_TEXT) KeyboardOptions.Default else KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(stringResource(R.string.col_default_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
+                }
                 if (kind != COL_TEXT) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.column_sum), color = cs.onSurface, modifier = Modifier.weight(1f), fontSize = 14.sp)
@@ -1117,7 +1142,7 @@ fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int,
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(name, kind, kind != COL_TEXT && sumIt, refA, refB) },
+                onClick = { onAdd(name, kind, kind != COL_TEXT && sumIt, refA, refB, defVal) },
                 enabled = name.isNotBlank() && (kind != COL_CALC || (refA != 0L && refB != 0L)),
             ) { Text(stringResource(R.string.add)) }
         },
@@ -1262,4 +1287,17 @@ fun EditLineDialog(line: SummaryLine, onDismiss: () -> Unit, onSave: (String, In
         confirmButton = { TextButton(onClick = { onSave(name, rowPos) }, enabled = name.isNotBlank()) { Text(stringResource(R.string.save)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+@Composable
+fun MiniBtn(glyph: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(glyph, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp)
+    }
 }
