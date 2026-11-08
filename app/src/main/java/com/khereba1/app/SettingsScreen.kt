@@ -36,11 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit) {
+fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (String) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val ctx = LocalContext.current
     val st = vm.settings
     val lang = remember { ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lang", "system") ?: "system" }
+    val font = remember { fontKey(ctx) }
     var showLog by remember { mutableStateOf(false) }
     var logText by remember { mutableStateOf("") }
     var bkBasic by remember { mutableStateOf(true) }
@@ -84,6 +85,14 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit) {
                     SegPill(stringResource(R.string.lang_system), lang == "system", { onLanguage("system") })
                     SegPill(stringResource(R.string.lang_arabic), lang == "ar", { onLanguage("ar") })
                     SegPill(stringResource(R.string.lang_english), lang == "en", { onLanguage("en") })
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(stringResource(R.string.font_label), color = cs.onSurfaceVariant, fontSize = 13.sp)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.font_cairo), font == "cairo", { onFont("cairo") })
+                    SegPill(stringResource(R.string.font_plex), font == "plex", { onFont("plex") })
+                    SegPill(stringResource(R.string.font_system), font == "system", { onFont("system") })
                 }
             }
 

@@ -69,6 +69,7 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
     var showPicker by remember { mutableStateOf(false) }
     var showIdea by remember { mutableStateOf(false) }
     var confirmStop by remember { mutableStateOf(false) }
+    var showCycle by remember { mutableStateOf(false) }
 
     LaunchedEffect(vm.plusRequest) {
         if (vm.plusRequest == PLUS_IDEA_FOCUS) {
@@ -163,7 +164,7 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
             }
 
             // the dial
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().heightIn(min = 190.dp), contentAlignment = Alignment.Center) {
                 val side = minOf(maxWidth * 0.74f, maxHeight, 270.dp)
                 DotRing(
                     progress = progress,
@@ -176,7 +177,7 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
                             timeText,
                             style = TextStyle(
                                 color = cs.onSurface,
-                                fontSize = (side.value * 0.17f).sp,
+                                fontSize = (side.value * 0.205f).sp,
                                 fontWeight = FontWeight.Light,
                                 fontFeatureSettings = "tnum",
                             ),
@@ -207,24 +208,21 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
                 }
 
                 if (st.cycleMode) {
-                    Column(
+                    Row(
                         Modifier
                             .fillMaxWidth()
                             .panel(cs.surface, 18.dp)
-                            .padding(horizontal = 14.dp, vertical = 4.dp),
+                            .clickable { showCycle = true }
+                            .padding(horizontal = 16.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Stepper(
-                            stringResource(R.string.short_len),
-                            stringResource(R.string.unit_min, st.shortMin.toString()),
-                        ) { d -> vm.adjustShort(d) }
-                        Stepper(
-                            stringResource(R.string.long_len),
-                            stringResource(R.string.unit_min, st.longMin.toString()),
-                        ) { d -> vm.adjustLong(d) }
-                        Stepper(
-                            stringResource(R.string.long_every),
-                            st.longEvery.toString(),
-                        ) { d -> vm.adjustEvery(d) }
+                        Text(
+                            stringResource(R.string.cycle_summary, st.shortMin.toString(), st.longMin.toString(), st.longEvery.toString()),
+                            Modifier.weight(1f),
+                            color = cs.onSurfaceVariant,
+                            fontSize = 13.sp,
+                        )
+                        Text(stringResource(R.string.edit_word), color = cs.primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -298,6 +296,29 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
         }
     }
 
+    if (showCycle) {
+        AlertDialog(
+            onDismissRequest = { showCycle = false },
+            title = { Text(stringResource(R.string.mode_cycle)) },
+            text = {
+                Column {
+                    Stepper(
+                        stringResource(R.string.short_len),
+                        stringResource(R.string.unit_min, st.shortMin.toString()),
+                    ) { d -> vm.adjustShort(d) }
+                    Stepper(
+                        stringResource(R.string.long_len),
+                        stringResource(R.string.unit_min, st.longMin.toString()),
+                    ) { d -> vm.adjustLong(d) }
+                    Stepper(
+                        stringResource(R.string.long_every),
+                        st.longEvery.toString(),
+                    ) { d -> vm.adjustEvery(d) }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showCycle = false }) { Text(stringResource(R.string.close)) } },
+        )
+    }
     if (showPicker) {
         TaskPickerDialog(
             tasks = vm.tasks.filter { !it.done },

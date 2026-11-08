@@ -246,6 +246,8 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
     var showSetup by remember(l.id) { mutableStateOf(false) }
     var entryTarget by remember { mutableStateOf<Entry?>(null) }
     var newEntryTable by remember { mutableStateOf<TableDef?>(null) }
+    var tableIdx by remember(l.id) { mutableStateOf(0) }
+    var showHelp by remember(l.id) { mutableStateOf(l.entries.isEmpty()) }
 
     val openingLabel = stringResource(R.string.opening_balance)
 
@@ -257,7 +259,7 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
     }
     LaunchedEffect(vm.plusRequest) {
         if (vm.plusRequest == PLUS_LEDGER) {
-            if (!closed && l.tables.isNotEmpty() && !showSetup) newEntryTable = l.tables.first()
+            if (!closed && l.tables.isNotEmpty() && !showSetup) newEntryTable = l.tables[tableIdx.coerceIn(0, l.tables.size - 1)]
             vm.consumePlus()
         }
     }
@@ -333,6 +335,7 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
         ) {
             Pill(stringResource(R.string.batches_title) + " ▾", false, { showBatches = true })
             Pill(stringResource(R.string.ledger_setup), false, { showSetup = true })
+            Pill("?", showHelp, { showHelp = !showHelp })
         }
 
         // totals (always visible)
@@ -371,33 +374,39 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
             }
         }
 
+        if (showHelp) {
+            Text(
+                stringResource(R.string.ledger_help),
+                color = cs.onSurface,
+                fontSize = 13.sp,
+                lineHeight = 21.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp)
+                    .panel(cs.primaryContainer, 16.dp)
+                    .padding(12.dp),
+            )
+        }
         if (l.tables.isEmpty()) {
             Text(stringResource(R.string.no_tables), color = cs.onSurfaceVariant, modifier = Modifier.padding(24.dp))
         } else {
-            if (!closed) {
-                val many = l.tables.size > 3
-                Row(
-                    (if (many) Modifier.horizontalScroll(rememberScrollState()) else Modifier.fillMaxWidth())
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    for (t in l.tables) {
-                        Button(
-                            onClick = { newEntryTable = t },
-                            colors = ButtonDefaults.buttonColors(containerColor = cs.primaryContainer, contentColor = cs.onPrimaryContainer),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp),
-                            modifier = (if (many) Modifier.widthIn(min = 110.dp) else Modifier.weight(1f)).heightIn(min = 54.dp),
-                        ) {
-                            Text("+ " + t.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 2)
-                        }
-                    }
+            val tbl = l.tables[tableIdx.coerceIn(0, l.tables.size - 1)]
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for ((i, t) in l.tables.withIndex()) {
+                    val n = l.entries.count { it.batchId == batch.id && it.tableId == t.id }
+                    Pill(t.name + " \u00B7 " + n.toString(), i == tableIdx.coerceIn(0, l.tables.size - 1), { tableIdx = i })
                 }
             }
 
             val entries = l.entries
-                .filter { it.batchId == batch.id }
-                .sortedWith(compareByDescending<Entry> { it.date }.thenByDescending { it.id })
+                .filter { it.batchId == batch.id && it.tableId == tbl.id }
+                .sortedWith(compareBy({ it.date }, { it.id }))
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -415,8 +424,47 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
                     }
                 }
                 items(entries, key = { it.id }) { e ->
-                    val et2 = l.tables.firstOrNull { it.id == e.tableId }
-                    if (et2 != null) EntryRow(l, et2, e) { if (!closed) entryTarget = e }
+                    EntryRow(l, tbl, e) { if (!closed) entryTarget = e }
+                }
+                if (!closed) {
+                    item(key = "addbtn") {
+                        Button(
+                            onClick = { newEntryTable = tbl },
+                            colors = ButtonDefaults.buttonColors(containerColor = cs.primaryContainer, contentColor = cs.onPrimaryContainer),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(46.dp),
+                        ) { Text(stringResource(R.string.add_entry, tbl.name), fontWeight = FontWeight.Bold) }
+                    }
+                }
+                item(key = "totalbar") {
+                    val parts = ArrayList<String>()
+                    for (c in tbl.columns) {
+                        if (c.kind != COL_TEXT && c.sumIt) {
+                            val v = LedgerCalc.colTotal(tbl, c, entries)
+                            parts.add(c.name + " " + LedgerCalc.withUnit(l, v, isMoneyCol(tbl, c)))
+                        }
+                    }
+                    if (parts.isNotEmpty()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp)
+                                .panel(cs.surfaceVariant, 16.dp)
+                                .padding(horizontal = 14.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(stringResource(R.string.table_total), color = cs.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Spacer(Modifier.size(10.dp))
+                            Text(
+                                parts.joinToString(" \u00B7 "),
+                                color = cs.primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.End,
+                            )
+                        }
+                    }
                 }
             }
         }

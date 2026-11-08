@@ -180,7 +180,7 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="opening_balance">Carried over</string>
     <string name="table_total">Total</string>
     <string name="no_tables">No tables yet. Open Structure to add one.</string>
-    <string name="entries_none">Nothing recorded yet.\nUse the buttons above: each one records something (received, delivered, money...).</string>
+    <string name="entries_none">Nothing recorded here yet.\nTap "Add entry" below to record the first one.</string>
     <string name="entries_none_closed">No entries in this batch.</string>
     <string name="date_label">Date</string>
     <string name="settle_button">Settle and close this batch</string>
@@ -245,4 +245,11 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="balance_total">Total</string>
     <string name="add_entry">Add entry to %1$s</string>
     <string name="copy_csv_t">CSV: %1$s</string>
+    <string name="font_label">Font</string>
+    <string name="font_cairo">Cairo</string>
+    <string name="font_plex">IBM Plex</string>
+    <string name="font_system">Phone font</string>
+    <string name="cycle_summary">Breaks: %1$s / %2$s min · long break every %3$s sessions</string>
+    <string name="edit_word">Edit</string>
+    <string name="ledger_help">How it works:\n1) Each tab is a table where you record one kind of thing (bags, pieces, money).\n2) Tap "Add entry", pick the date and fill the numbers.\n3) The card at the top adds everything up and shows what is remaining.\n4) When you finish the model, tap "Settle and close this batch".\nTap ? to hide this.</string>
 </resources>

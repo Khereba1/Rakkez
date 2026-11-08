@@ -114,7 +114,7 @@ fun TasksScreen(vm: MainViewModel, onPlay: (Long) -> Unit) {
                     value = draft,
                     onValueChange = { draft = it },
                     singleLine = true,
-                    textStyle = TextStyle(color = cs.onSurface, fontSize = 16.sp),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = cs.onSurface, fontSize = 16.sp),
                     cursorBrush = SolidColor(cs.primary),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { submit() }),

@@ -284,6 +284,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Alerts.ensureChannel(app)
     }
 
+    fun changeFont(key: String) {
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("font", key).commit()
+    }
+
     // ---------------- parking lot ----------------
 
     fun addIdea(text: String) {

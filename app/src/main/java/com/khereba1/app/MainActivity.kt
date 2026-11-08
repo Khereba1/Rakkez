@@ -61,6 +61,10 @@ class MainActivity : ComponentActivity() {
                         vm.changeLanguage(lang)
                         recreate()
                     },
+                    onFont = { key ->
+                        vm.changeFont(key)
+                        recreate()
+                    },
                     onBeforeStart = { askNotificationPermission() },
                 )
             }
@@ -112,7 +116,7 @@ class MainActivity : ComponentActivity() {
 
 // tab indexes: 0 tasks, 1 focus, 3 notes, 4 ledger (2 is the center "+" button, not a screen)
 @Composable
-fun AppRoot(vm: MainViewModel, onLanguage: (String) -> Unit, onBeforeStart: () -> Unit) {
+fun AppRoot(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (String) -> Unit, onBeforeStart: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val inLedgerDetail = vm.tab == 4 && vm.openLedgerId != 0L
     BackHandler(enabled = vm.overlay != OVERLAY_NONE) { vm.closeOverlay() }
@@ -122,7 +126,7 @@ fun AppRoot(vm: MainViewModel, onLanguage: (String) -> Unit, onBeforeStart: () -
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
                 if (vm.overlay == OVERLAY_SETTINGS) {
-                    SettingsScreen(vm = vm, onLanguage = onLanguage)
+                    SettingsScreen(vm = vm, onLanguage = onLanguage, onFont = onFont)
                 } else if (vm.overlay == OVERLAY_TODAY) {
                     TodayScreen(vm = vm)
                 } else {

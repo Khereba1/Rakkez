@@ -1,11 +1,17 @@
 package com.khereba1.app
 
+import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 
 // "Ink and saffron": warm paper in the light theme, deep ink in the dark theme.
 // Amber = focus, mint = break.
@@ -57,8 +63,58 @@ private val LightScheme = lightColorScheme(
 
 @Composable
 fun RakkezTheme(content: @Composable () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val ff = remember { appFontFamily(ctx) }
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) DarkScheme else LightScheme,
+        typography = typographyFor(ff),
         content = content,
+    )
+}
+
+val CairoFamily = FontFamily(
+    Font(R.font.cairo_light, FontWeight.Light),
+    Font(R.font.cairo_regular, FontWeight.Normal),
+    Font(R.font.cairo_medium, FontWeight.Medium),
+    Font(R.font.cairo_semibold, FontWeight.SemiBold),
+    Font(R.font.cairo_bold, FontWeight.Bold),
+)
+
+val PlexFamily = FontFamily(
+    Font(R.font.plex_light, FontWeight.Light),
+    Font(R.font.plex_regular, FontWeight.Normal),
+    Font(R.font.plex_medium, FontWeight.Medium),
+    Font(R.font.plex_semibold, FontWeight.SemiBold),
+    Font(R.font.plex_bold, FontWeight.Bold),
+)
+
+/** "cairo" (default), "plex" or "system" (the phone's own font). */
+fun fontKey(c: Context): String = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("font", "cairo") ?: "cairo"
+
+fun appFontFamily(c: Context): FontFamily? = when (fontKey(c)) {
+    "plex" -> PlexFamily
+    "system" -> null
+    else -> CairoFamily
+}
+
+private fun typographyFor(ff: FontFamily?): Typography {
+    val d = Typography()
+    if (ff == null) return d
+    return Typography(
+        displayLarge = d.displayLarge.copy(fontFamily = ff),
+        displayMedium = d.displayMedium.copy(fontFamily = ff),
+        displaySmall = d.displaySmall.copy(fontFamily = ff),
+        headlineLarge = d.headlineLarge.copy(fontFamily = ff),
+        headlineMedium = d.headlineMedium.copy(fontFamily = ff),
+        headlineSmall = d.headlineSmall.copy(fontFamily = ff),
+        titleLarge = d.titleLarge.copy(fontFamily = ff),
+        titleMedium = d.titleMedium.copy(fontFamily = ff),
+        titleSmall = d.titleSmall.copy(fontFamily = ff),
+        bodyLarge = d.bodyLarge.copy(fontFamily = ff),
+        bodyMedium = d.bodyMedium.copy(fontFamily = ff),
+        bodySmall = d.bodySmall.copy(fontFamily = ff),
+        labelLarge = d.labelLarge.copy(fontFamily = ff),
+        labelMedium = d.labelMedium.copy(fontFamily = ff),
+        labelSmall = d.labelSmall.copy(fontFamily = ff),
     )
 }
