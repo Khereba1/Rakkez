@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -170,7 +173,10 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
                     progress = progress,
                     lit = accent,
                     dim = cs.outlineVariant,
-                    modifier = Modifier.size(side),
+                    modifier = Modifier
+                        .size(side)
+                        .clip(CircleShape)
+                        .clickable(enabled = !active && st.cycleMode) { showCycle = true },
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
@@ -207,24 +213,6 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
                     PresetPill(stringResource(R.string.preset_deep), 45, st.focusMin, Modifier.weight(1f)) { vm.setFocusMinutes(45) }
                 }
 
-                if (st.cycleMode) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .panel(cs.surface, 18.dp)
-                            .clickable { showCycle = true }
-                            .padding(horizontal = 16.dp, vertical = 11.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            stringResource(R.string.cycle_summary, st.shortMin.toString(), st.longMin.toString(), st.longEvery.toString()),
-                            Modifier.weight(1f),
-                            color = cs.onSurfaceVariant,
-                            fontSize = 13.sp,
-                        )
-                        Text(stringResource(R.string.edit_word), color = cs.primary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
             }
 
             // controls
@@ -279,20 +267,23 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
                 }
             }
 
-            if (!active) {
-                TextButton(onClick = { vm.resetTimerDefaults() }) {
-                    Text(stringResource(R.string.reset_defaults), color = cs.onSurfaceVariant, fontSize = 13.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (!active) {
+                    TextButton(onClick = { vm.resetTimerDefaults() }, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)) {
+                        Text(stringResource(R.string.reset_defaults), color = cs.onSurfaceVariant, fontSize = 12.5.sp)
+                    }
+                    Text("\u00B7", color = cs.onSurfaceVariant, fontSize = 14.sp)
                 }
+                Text(
+                    stringResource(R.string.today_so_far, fmtMinutes(ctx, todayMin)) + "  \u203A",
+                    color = cs.onSurfaceVariant,
+                    fontSize = 12.5.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { vm.openOverlay(OVERLAY_TODAY) }
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                )
             }
-
-            Text(
-                stringResource(R.string.today_so_far, fmtMinutes(ctx, todayMin)) + "  ›",
-                color = cs.onSurfaceVariant,
-                fontSize = 14.sp,
-                modifier = Modifier
-                    .clickable { vm.openOverlay(OVERLAY_TODAY) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
         }
     }
 

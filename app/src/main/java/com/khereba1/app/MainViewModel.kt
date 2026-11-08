@@ -429,10 +429,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addLine(ledgerId: Long, label: String, tableId: Long, colId: Long, sign: Int, money: Boolean) {
+    fun addLine(ledgerId: Long, label: String, tableId: Long, colId: Long, sign: Int, money: Boolean, row: Int) {
         val n = label.trim().take(40)
         if (n.isEmpty() || tableId == 0L || colId == 0L) return
-        mutateLedger(ledgerId) { l -> l.copy(lines = l.lines + SummaryLine(Store.newId(), n, tableId, colId, sign, money)) }
+        mutateLedger(ledgerId) { l -> l.copy(lines = l.lines + SummaryLine(Store.newId(), n, tableId, colId, sign, money, row)) }
+    }
+
+    fun editLine(ledgerId: Long, lineId: Long, label: String, row: Int) {
+        val n = label.trim().take(40)
+        if (n.isEmpty()) return
+        mutateLedger(ledgerId) { l -> l.copy(lines = l.lines.map { x -> if (x.id == lineId) x.copy(label = n, row = row) else x }) }
+    }
+
+    fun editColumn(ledgerId: Long, tableId: Long, colId: Long, name: String, def: String, sumIt: Boolean) {
+        val n = name.trim().take(30)
+        if (n.isEmpty()) return
+        mutateLedger(ledgerId) { l ->
+            l.copy(
+                tables = l.tables.map { t ->
+                    if (t.id == tableId) {
+                        t.copy(columns = t.columns.map { c -> if (c.id == colId) c.copy(name = n, def = def.trim().take(40), sumIt = sumIt) else c })
+                    } else {
+                        t
+                    }
+                },
+            )
+        }
+    }
+
+    fun renameBatch(ledgerId: Long, batchId: Long, name: String) {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return
+        mutateLedger(ledgerId) { l -> l.copy(batches = l.batches.map { b -> if (b.id == batchId) b.copy(name = n) else b }) }
     }
 
     fun deleteLine(ledgerId: Long, lineId: Long) {

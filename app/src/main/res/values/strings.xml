@@ -180,7 +180,7 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="opening_balance">Carried over</string>
     <string name="table_total">Total</string>
     <string name="no_tables">No tables yet. Open Structure to add one.</string>
-    <string name="entries_none">Nothing recorded here yet.\nTap "Add entry" below to record the first one.</string>
+    <string name="entries_none">Nothing recorded here yet.\nTap + below to record the first one.</string>
     <string name="entries_none_closed">No entries in this batch.</string>
     <string name="date_label">Date</string>
     <string name="settle_button">Settle and close this batch</string>
@@ -251,5 +251,15 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="font_system">Phone font</string>
     <string name="cycle_summary">Breaks: %1$s / %2$s min · long break every %3$s sessions</string>
     <string name="edit_word">Edit</string>
-    <string name="ledger_help">How it works:\n1) Each tab is a table where you record one kind of thing (bags, pieces, money).\n2) Tap "Add entry", pick the date and fill the numbers.\n3) The card at the top adds everything up and shows what is remaining.\n4) When you finish the model, tap "Settle and close this batch".\nTap ? to hide this.</string>
+    <string name="ledger_help">1) Each tab is a table where you record one kind of thing (bags, pieces, money).\n\n2) Tap + at the bottom, pick the date and fill in the numbers.\n\n3) The card at the top adds everything up and shows what is remaining.\n\n4) When you finish the model, tap "Settle and close this batch".\n\nIn Structure you can rename columns, set a default value for a column, and choose which totals appear in the top row or next to the balance.</string>
+    <string name="ledger_help_title">How it works</string>
+    <string name="help_ok">Got it</string>
+    <string name="col_edit">Edit column</string>
+    <string name="col_default">Default value</string>
+    <string name="col_default_hint">Filled in automatically in every new entry. You can still change it per entry, and old entries are not touched.</string>
+    <string name="line_edit">Edit line</string>
+    <string name="line_row_label">Show it in</string>
+    <string name="row_top">Top row</string>
+    <string name="row_bottom">With the balance</string>
+    <string name="batch_rename">Rename batch</string>
 </resources>

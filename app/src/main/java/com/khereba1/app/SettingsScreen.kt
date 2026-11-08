@@ -106,6 +106,9 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
                     stringResource(R.string.unit_min, st.goalMin.toString()),
                     { d -> vm.applySettings(st.copy(goalMin = (st.goalMin + d * 15).coerceIn(15, 720))) },
                 )
+                Stepper(stringResource(R.string.short_len), stringResource(R.string.unit_min, st.shortMin.toString())) { d -> vm.adjustShort(d) }
+                Stepper(stringResource(R.string.long_len), stringResource(R.string.unit_min, st.longMin.toString())) { d -> vm.adjustLong(d) }
+                Stepper(stringResource(R.string.long_every), st.longEvery.toString()) { d -> vm.adjustEvery(d) }
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.set_keep_screen), Modifier.weight(1f), color = cs.onSurface, fontSize = 15.sp)
                     Switch(checked = st.keepOn, onCheckedChange = { v -> vm.applySettings(st.copy(keepOn = v)) })

@@ -247,7 +247,7 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
     var entryTarget by remember { mutableStateOf<Entry?>(null) }
     var newEntryTable by remember { mutableStateOf<TableDef?>(null) }
     var tableIdx by remember(l.id) { mutableStateOf(0) }
-    var showHelp by remember(l.id) { mutableStateOf(l.entries.isEmpty()) }
+    var showHelp by remember(l.id) { mutableStateOf(false) }
 
     val openingLabel = stringResource(R.string.opening_balance)
 
@@ -335,7 +335,7 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
         ) {
             Pill(stringResource(R.string.batches_title) + " ▾", false, { showBatches = true })
             Pill(stringResource(R.string.ledger_setup), false, { showSetup = true })
-            Pill("?", showHelp, { showHelp = !showHelp })
+            Pill("?", false, { showHelp = true })
         }
 
         // totals (always visible)
@@ -346,13 +346,14 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
                 .panel(cs.surface, 22.dp)
                 .padding(horizontal = 12.dp, vertical = 12.dp),
         ) {
-            val cells = ArrayList<Triple<String, String, Boolean>>()
-            if (batch.opening != 0.0) cells.add(Triple(openingLabel, LedgerCalc.withUnit(l, batch.opening, true), false))
+            val top = ArrayList<Pair<String, String>>()
+            if (batch.opening != 0.0) top.add(Pair(openingLabel, LedgerCalc.withUnit(l, batch.opening, true)))
+            val bottom = ArrayList<Pair<String, String>>()
             for (line in l.lines) {
-                cells.add(Triple(line.label, LedgerCalc.withUnit(l, LedgerCalc.lineValue(l, line, batch.id), line.money), false))
+                val pr = Pair(line.label, LedgerCalc.withUnit(l, LedgerCalc.lineValue(l, line, batch.id), line.money))
+                if (line.row == 1) bottom.add(pr) else top.add(pr)
             }
-            val rows = cells.chunked(3)
-            for (r in rows) {
+            for (r in top.chunked(3)) {
                 Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                     for (cell in r) {
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -363,30 +364,30 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
                     for (k in r.size until 3) Spacer(Modifier.weight(1f))
                 }
             }
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(l.balanceLabel, color = cs.onSurfaceVariant, fontSize = 12.sp)
-                Text(
-                    LedgerCalc.withUnit(l, LedgerCalc.balance(l, batch), true),
-                    color = cs.primary,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+            if (top.isNotEmpty()) {
+                Spacer(Modifier.fillMaxWidth().height(1.dp).background(cs.outlineVariant))
+                Spacer(Modifier.height(10.dp))
+            }
+            Row(Modifier.fillMaxWidth()) {
+                for (cell in bottom) {
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(cell.first, color = cs.onSurfaceVariant, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(cell.second, color = cs.onSurface, fontSize = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(l.balanceLabel, color = cs.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        LedgerCalc.withUnit(l, LedgerCalc.balance(l, batch), true),
+                        color = cs.primary,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                }
             }
         }
 
-        if (showHelp) {
-            Text(
-                stringResource(R.string.ledger_help),
-                color = cs.onSurface,
-                fontSize = 13.sp,
-                lineHeight = 21.sp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp)
-                    .panel(cs.primaryContainer, 16.dp)
-                    .padding(12.dp),
-            )
-        }
         if (l.tables.isEmpty()) {
             Text(stringResource(R.string.no_tables), color = cs.onSurfaceVariant, modifier = Modifier.padding(24.dp))
         } else {
@@ -425,16 +426,6 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
                 }
                 items(entries, key = { it.id }) { e ->
                     EntryRow(l, tbl, e) { if (!closed) entryTarget = e }
-                }
-                if (!closed) {
-                    item(key = "addbtn") {
-                        Button(
-                            onClick = { newEntryTable = tbl },
-                            colors = ButtonDefaults.buttonColors(containerColor = cs.primaryContainer, contentColor = cs.onPrimaryContainer),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(46.dp),
-                        ) { Text(stringResource(R.string.add_entry, tbl.name), fontWeight = FontWeight.Bold) }
-                    }
                 }
                 item(key = "totalbar") {
                     val parts = ArrayList<String>()
@@ -493,6 +484,22 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
     }
 
     // dialogs
+    if (showHelp) {
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text(stringResource(R.string.ledger_help_title)) },
+            text = {
+                Text(
+                    stringResource(R.string.ledger_help),
+                    color = cs.onSurface,
+                    fontSize = 14.sp,
+                    lineHeight = 23.sp,
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                )
+            },
+            confirmButton = { TextButton(onClick = { showHelp = false }) { Text(stringResource(R.string.help_ok)) } },
+        )
+    }
     val nt = newEntryTable
     if (nt != null) {
         EntryDialog(
@@ -627,6 +634,10 @@ fun EntryDialog(
         val m = mutableStateMapOf<Long, String>()
         if (entry != null) {
             for ((k, v) in entry.values) m[k] = v
+        } else {
+            for (c in table.columns) {
+                if (c.kind != COL_CALC && c.def.isNotEmpty()) m[c.id] = c.def
+            }
         }
         m
     }
@@ -748,6 +759,7 @@ fun BatchesDialog(vm: MainViewModel, l: Ledger, current: Batch, onDismiss: () ->
     val cs = MaterialTheme.colorScheme
     var newName by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf<Batch?>(null) }
+    var renaming by remember { mutableStateOf<Batch?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.batches_title)) },
@@ -804,6 +816,10 @@ fun BatchesDialog(vm: MainViewModel, l: Ledger, current: Batch, onDismiss: () ->
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
+    val rn = renaming
+    if (rn != null) {
+        NameDialog(stringResource(R.string.batch_rename), rn.name, { renaming = null }, { n -> vm.renameBatch(l.id, rn.id, n) })
+    }
     val d = deleting
     if (d != null) {
         ConfirmDialog(
@@ -867,6 +883,8 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
     var renameTable by remember { mutableStateOf<TableDef?>(null) }
     var addColumnTo by remember { mutableStateOf<TableDef?>(null) }
     var addLine by remember { mutableStateOf(false) }
+    var editColumnOf by remember { mutableStateOf<Pair<TableDef, ColumnDef>?>(null) }
+    var editLineOf by remember { mutableStateOf<SummaryLine?>(null) }
     var confirmDeleteLedger by remember { mutableStateOf(false) }
     var confirmDeleteTable by remember { mutableStateOf<TableDef?>(null) }
 
@@ -921,7 +939,16 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
                             else -> stringResource(R.string.kind_calc)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(c.name + " · " + kindText, color = cs.onSurfaceVariant, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            Text(
+                                c.name + " · " + kindText + (if (c.def.isNotEmpty()) " · = " + c.def else ""),
+                                color = cs.onSurface,
+                                fontSize = 14.sp,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { editColumnOf = Pair(t, c) }
+                                    .padding(vertical = 10.dp),
+                            )
+                            TextButton(onClick = { editColumnOf = Pair(t, c) }) { Text("\u270E", color = cs.onSurfaceVariant) }
                             TextButton(onClick = { vm.deleteColumn(l.id, t.id, c.id) }) { Text("✕", color = cs.onSurfaceVariant) }
                         }
                     }
@@ -941,8 +968,12 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
                             signText + "  " + line.label + "  ←  " + (t?.name ?: "?") + " / " + (c?.name ?: "?"),
                             color = cs.onSurface,
                             fontSize = 14.sp,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { editLineOf = line }
+                                .padding(vertical = 10.dp),
                         )
+                        TextButton(onClick = { editLineOf = line }) { Text("\u270E", color = cs.onSurfaceVariant) }
                         TextButton(onClick = { vm.deleteLine(l.id, line.id) }) { Text("✕", color = cs.onSurfaceVariant) }
                     }
                 }
@@ -979,9 +1010,31 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
         AddLineDialog(
             ledger = l,
             onDismiss = { addLine = false },
-            onAdd = { label, tid, cid, sign, money ->
-                vm.addLine(l.id, label, tid, cid, sign, money)
+            onAdd = { label, tid, cid, sign, money, row ->
+                vm.addLine(l.id, label, tid, cid, sign, money, row)
                 addLine = false
+            },
+        )
+    }
+    val ec = editColumnOf
+    if (ec != null) {
+        EditColumnDialog(
+            col = ec.second,
+            onDismiss = { editColumnOf = null },
+            onSave = { n, d, sm ->
+                vm.editColumn(l.id, ec.first.id, ec.second.id, n, d, sm)
+                editColumnOf = null
+            },
+        )
+    }
+    val el = editLineOf
+    if (el != null) {
+        EditLineDialog(
+            line = el,
+            onDismiss = { editLineOf = null },
+            onSave = { n, r ->
+                vm.editLine(l.id, el.id, n, r)
+                editLineOf = null
             },
         )
     }
@@ -1073,13 +1126,14 @@ fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int,
 }
 
 @Composable
-fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, Long, Int, Boolean) -> Unit) {
+fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, Long, Int, Boolean, Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var label by remember { mutableStateOf("") }
     var tableId by remember { mutableStateOf(0L) }
     var colId by remember { mutableStateOf(0L) }
     var sign by remember { mutableStateOf(1) }
     var money by remember { mutableStateOf(true) }
+    var rowPos by remember { mutableStateOf(0) }
     val table = ledger.tables.firstOrNull { it.id == tableId }
     val numeric = table?.columns?.filter { it.kind != COL_TEXT } ?: emptyList()
     AlertDialog(
@@ -1118,6 +1172,11 @@ fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, L
                     SegPill(stringResource(R.string.sign_minus), sign == -1, { sign = -1 })
                     SegPill(stringResource(R.string.sign_info), sign == 0, { sign = 0 })
                 }
+                Text(stringResource(R.string.line_row_label), color = cs.onSurfaceVariant, fontSize = 13.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.row_top), rowPos == 0, { rowPos = 0 })
+                    SegPill(stringResource(R.string.row_bottom), rowPos == 1, { rowPos = 1 })
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.line_money), color = cs.onSurface, modifier = Modifier.weight(1f), fontSize = 14.sp)
                     Switch(checked = money, onCheckedChange = { v -> money = v })
@@ -1126,10 +1185,81 @@ fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, L
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(label, tableId, colId, sign, money) },
+                onClick = { onAdd(label, tableId, colId, sign, money, rowPos) },
                 enabled = label.isNotBlank() && tableId != 0L && colId != 0L,
             ) { Text(stringResource(R.string.add)) }
         },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+fun EditColumnDialog(col: ColumnDef, onDismiss: () -> Unit, onSave: (String, String, Boolean) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var name by remember { mutableStateOf(col.name) }
+    var def by remember { mutableStateOf(col.def) }
+    var sumIt by remember { mutableStateOf(col.sumIt) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.col_edit)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.column_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (col.kind != COL_CALC) {
+                    OutlinedTextField(
+                        value = def,
+                        onValueChange = { def = it },
+                        label = { Text(stringResource(R.string.col_default)) },
+                        singleLine = true,
+                        keyboardOptions = if (col.kind == COL_TEXT) KeyboardOptions.Default else KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(stringResource(R.string.col_default_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
+                }
+                if (col.kind != COL_TEXT) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.column_sum), color = cs.onSurface, modifier = Modifier.weight(1f), fontSize = 14.sp)
+                        Switch(checked = sumIt, onCheckedChange = { v -> sumIt = v })
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(name, def, sumIt) }, enabled = name.isNotBlank()) { Text(stringResource(R.string.save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+fun EditLineDialog(line: SummaryLine, onDismiss: () -> Unit, onSave: (String, Int) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var name by remember { mutableStateOf(line.label) }
+    var rowPos by remember { mutableStateOf(line.row) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.line_edit)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.line_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(stringResource(R.string.line_row_label), color = cs.onSurfaceVariant, fontSize = 13.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.row_top), rowPos == 0, { rowPos = 0 })
+                    SegPill(stringResource(R.string.row_bottom), rowPos == 1, { rowPos = 1 })
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(name, rowPos) }, enabled = name.isNotBlank()) { Text(stringResource(R.string.save)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

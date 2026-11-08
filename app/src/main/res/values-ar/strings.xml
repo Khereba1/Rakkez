@@ -179,7 +179,7 @@
     <string name="opening_balance">مرحّل</string>
     <string name="table_total">الإجمالي</string>
     <string name="no_tables">مفيش جداول لسه. افتح الهيكل وزوّد واحد.</string>
-    <string name="entries_none">لسه مفيش حاجة متسجلة هنا.\nدوس "إضافة قيد" تحت عشان تسجّل أول واحدة.</string>
+    <string name="entries_none">لسه مفيش حاجة متسجلة هنا.\nدوس + اللي تحت عشان تسجّل أول واحدة.</string>
     <string name="entries_none_closed">مفيش قيود في الدفعة دي.</string>
     <string name="date_label">التاريخ</string>
     <string name="settle_button">تصفية وإقفال الدفعة دي</string>
@@ -250,5 +250,15 @@
     <string name="font_system">خط الموبايل</string>
     <string name="cycle_summary">استراحة %1$s / %2$s د · طويلة كل %3$s جلسات</string>
     <string name="edit_word">تعديل</string>
-    <string name="ledger_help">إزاي بتشتغل:\n١) كل تبويب جدول بتسجّل فيه نوع واحد (شكاير، قطع، فلوس).\n٢) دوس "إضافة قيد"، اختار التاريخ واكتب الأرقام.\n٣) الكارت اللي فوق بيجمع كل حاجة لوحده ويطلّعلك المتبقي.\n٤) لما تخلّص الموديل دوس "تصفية وإقفال الدفعة دي".\nدوس ؟ عشان تخفي الشرح.</string>
+    <string name="ledger_help">١) كل تبويب جدول بتسجّل فيه نوع واحد (شكاير، قطع، فلوس).\n\n٢) دوس + اللي تحت، اختار التاريخ واكتب الأرقام.\n\n٣) الكارت اللي فوق بيجمع كل حاجة لوحده ويطلّعلك المتبقي.\n\n٤) لما تخلّص الموديل دوس "تصفية وإقفال الدفعة دي".\n\nمن "الهيكل" تقدر تغيّر أسماء الأعمدة، وتحط قيمة ثابتة لعمود، وتختار أنهي إجماليات تظهر في الصف اللي فوق وأنهي جنب الرصيد.</string>
+    <string name="ledger_help_title">إزاي بتشتغل</string>
+    <string name="help_ok">فهمت</string>
+    <string name="col_edit">تعديل العمود</string>
+    <string name="col_default">القيمة الثابتة</string>
+    <string name="col_default_hint">بتتكتب تلقائي في كل قيد جديد. تقدر تغيّرها في أي قيد، والقيود القديمة مش بتتأثر.</string>
+    <string name="line_edit">تعديل السطر</string>
+    <string name="line_row_label">يظهر في</string>
+    <string name="row_top">الصف اللي فوق</string>
+    <string name="row_bottom">جنب الرصيد</string>
+    <string name="batch_rename">تغيير اسم الدفعة</string>
 </resources>

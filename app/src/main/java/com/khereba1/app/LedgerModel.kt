@@ -21,6 +21,7 @@ data class ColumnDef(
     val sumIt: Boolean = true,
     val refA: Long = 0L,
     val refB: Long = 0L,
+    val def: String = "",
 )
 
 data class TableDef(val id: Long, val name: String, val columns: List<ColumnDef>)
@@ -33,6 +34,7 @@ data class SummaryLine(
     val colId: Long,
     val sign: Int,
     val money: Boolean,
+    val row: Int = 0,
 )
 
 data class Entry(
@@ -279,6 +281,7 @@ object LedgerStore {
                         sumIt = co.optBoolean("sum", true),
                         refA = co.optLong("a", 0L),
                         refB = co.optLong("b", 0L),
+                        def = co.optString("d", ""),
                     )
                 )
             }
@@ -296,6 +299,7 @@ object LedgerStore {
                     colId = lo.optLong("c", 0L),
                     sign = lo.optInt("sign", 0),
                     money = lo.optBoolean("money", false),
+                    row = lo.optInt("r", 0),
                 )
             )
         }
@@ -362,6 +366,7 @@ object LedgerStore {
                 co.put("sum", c.sumIt)
                 co.put("a", c.refA)
                 co.put("b", c.refB)
+                co.put("d", c.def)
                 ca.put(co)
             }
             to.put("cols", ca)
@@ -377,6 +382,7 @@ object LedgerStore {
             lo.put("c", line.colId)
             lo.put("sign", line.sign)
             lo.put("money", line.money)
+            lo.put("r", line.row)
             la.put(lo)
         }
         o.put("lines", la)
@@ -439,7 +445,7 @@ object LedgerTemplates {
                     SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_bags), tWool.id, cBags.id, 0, false),
                     SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_pieces), tDeliver.id, cQty.id, 0, false),
                     SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_due), tDeliver.id, cTotal.id, 1, true),
-                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_received), tMoney.id, cAmount.id, -1, true),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_received), tMoney.id, cAmount.id, -1, true, 1),
                 )
                 return Ledger(Store.newId(), name, unit, LocaleHelper.wrap(c).getString(R.string.balance_remaining), listOf(tWool, tDeliver, tMoney), lines, listOf(batch), emptyList())
             }
@@ -451,8 +457,8 @@ object LedgerTemplates {
                 val cExp = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_amount), COL_MONEY)
                 val tExp = TableDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.tbl_expense), listOf(cItem, cExp))
                 val lines = listOf(
-                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_income), tInc.id, cInc.id, 1, true),
-                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_expense), tExp.id, cExp.id, -1, true),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_income), tInc.id, cInc.id, 1, true, 1),
+                    SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_expense), tExp.id, cExp.id, -1, true, 1),
                 )
                 return Ledger(Store.newId(), name, unit, LocaleHelper.wrap(c).getString(R.string.balance_left), listOf(tInc, tExp), lines, listOf(batch), emptyList())
             }
@@ -460,7 +466,7 @@ object LedgerTemplates {
                 val cItem = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_item), COL_TEXT)
                 val cAmt = ColumnDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.col_amount), COL_MONEY)
                 val t = TableDef(Store.newId(), LocaleHelper.wrap(c).getString(R.string.tbl_default), listOf(cItem, cAmt))
-                val lines = listOf(SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_total), t.id, cAmt.id, 1, true))
+                val lines = listOf(SummaryLine(Store.newId(), LocaleHelper.wrap(c).getString(R.string.line_total), t.id, cAmt.id, 1, true, 1))
                 return Ledger(Store.newId(), name, unit, LocaleHelper.wrap(c).getString(R.string.balance_total), listOf(t), lines, listOf(batch), emptyList())
             }
         }
