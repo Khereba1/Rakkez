@@ -80,10 +80,10 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit) {
             Column(Modifier.fillMaxWidth().panel(cs.surface, 20.dp).padding(16.dp)) {
                 Text(stringResource(R.string.language_label), color = cs.onSurfaceVariant, fontSize = 13.sp)
                 Spacer(Modifier.height(8.dp))
-                Wrap {
-                    Pill(stringResource(R.string.lang_system), lang == "system", { onLanguage("system") })
-                    Pill(stringResource(R.string.lang_arabic), lang == "ar", { onLanguage("ar") })
-                    Pill(stringResource(R.string.lang_english), lang == "en", { onLanguage("en") })
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.lang_system), lang == "system", { onLanguage("system") })
+                    SegPill(stringResource(R.string.lang_arabic), lang == "ar", { onLanguage("ar") })
+                    SegPill(stringResource(R.string.lang_english), lang == "en", { onLanguage("en") })
                 }
             }
 

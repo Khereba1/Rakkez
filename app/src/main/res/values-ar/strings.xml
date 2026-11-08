@@ -179,7 +179,7 @@
     <string name="opening_balance">مرحّل</string>
     <string name="table_total">الإجمالي</string>
     <string name="no_tables">مفيش جداول لسه. افتح الهيكل وزوّد واحد.</string>
-    <string name="entries_none">مفيش قيود لسه. دوس + عشان تضيف.</string>
+    <string name="entries_none">لسه مفيش حاجة متسجلة.\nاستخدم الأزرار اللي فوق: كل زرار بيسجّل حاجة (استلام، تسليم، فلوس...).</string>
     <string name="entries_none_closed">مفيش قيود في الدفعة دي.</string>
     <string name="date_label">التاريخ</string>
     <string name="settle_button">تصفية وإقفال الدفعة دي</string>
@@ -243,4 +243,5 @@
     <string name="balance_left">الباقي</string>
     <string name="balance_total">الإجمالي</string>
     <string name="add_entry">إضافة قيد في %1$s</string>
+    <string name="copy_csv_t">CSV: %1$s</string>
 </resources>

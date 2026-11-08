@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -238,16 +239,14 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
         return
     }
     val closed = batch.closedAt != 0L
-    var tableIdx by remember(l.id) { mutableStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
     var copied by remember { mutableStateOf(false) }
     var showBatches by remember { mutableStateOf(false) }
     var showSettle by remember { mutableStateOf(false) }
     var showSetup by remember(l.id) { mutableStateOf(false) }
     var entryTarget by remember { mutableStateOf<Entry?>(null) }
-    var newEntry by remember { mutableStateOf(false) }
+    var newEntryTable by remember { mutableStateOf<TableDef?>(null) }
 
-    val tbl = if (l.tables.isEmpty()) null else l.tables[tableIdx.coerceIn(0, l.tables.size - 1)]
     val openingLabel = stringResource(R.string.opening_balance)
 
     LaunchedEffect(copied) {
@@ -258,7 +257,7 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
     }
     LaunchedEffect(vm.plusRequest) {
         if (vm.plusRequest == PLUS_LEDGER) {
-            if (!closed && tbl != null && !showSetup) newEntry = true
+            if (!closed && l.tables.isNotEmpty() && !showSetup) newEntryTable = l.tables.first()
             vm.consumePlus()
         }
     }
@@ -310,14 +309,16 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
                         text = { Text(stringResource(R.string.copy_summary)) },
                         onClick = { copyText(LedgerCalc.summaryText(l, batch, openingLabel)) },
                     )
-                    if (tbl != null) {
+                    for (t in l.tables) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.copy_table, tbl.name)) },
-                            onClick = { copyText(LedgerCalc.tableText(l, tbl, batch)) },
+                            text = { Text(stringResource(R.string.copy_table, t.name)) },
+                            onClick = { copyText(LedgerCalc.tableText(l, t, batch)) },
                         )
+                    }
+                    for (t in l.tables) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.copy_csv)) },
-                            onClick = { copyText(LedgerCalc.csv(l, tbl, batch)) },
+                            text = { Text(stringResource(R.string.copy_csv_t, t.name)) },
+                            onClick = { copyText(LedgerCalc.csv(l, t, batch)) },
                         )
                     }
                 }
@@ -370,19 +371,33 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
             }
         }
 
-        if (tbl == null) {
+        if (l.tables.isEmpty()) {
             Text(stringResource(R.string.no_tables), color = cs.onSurfaceVariant, modifier = Modifier.padding(24.dp))
         } else {
-            Wrap(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                for ((i, t) in l.tables.withIndex()) {
-                    val n = l.entries.count { it.batchId == batch.id && it.tableId == t.id }
-                    Pill(t.name + " · " + n.toString(), i == tableIdx.coerceIn(0, l.tables.size - 1), { tableIdx = i })
+            if (!closed) {
+                val many = l.tables.size > 3
+                Row(
+                    (if (many) Modifier.horizontalScroll(rememberScrollState()) else Modifier.fillMaxWidth())
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    for (t in l.tables) {
+                        Button(
+                            onClick = { newEntryTable = t },
+                            colors = ButtonDefaults.buttonColors(containerColor = cs.primaryContainer, contentColor = cs.onPrimaryContainer),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp),
+                            modifier = (if (many) Modifier.widthIn(min = 110.dp) else Modifier.weight(1f)).heightIn(min = 54.dp),
+                        ) {
+                            Text("+ " + t.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 2)
+                        }
+                    }
                 }
             }
 
             val entries = l.entries
-                .filter { it.batchId == batch.id && it.tableId == tbl.id }
-                .sortedWith(compareBy({ it.date }, { it.id }))
+                .filter { it.batchId == batch.id }
+                .sortedWith(compareByDescending<Entry> { it.date }.thenByDescending { it.id })
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -394,52 +409,14 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
                             stringResource(if (closed) R.string.entries_none_closed else R.string.entries_none),
                             color = cs.onSurfaceVariant,
                             fontSize = 14.sp,
+                            lineHeight = 22.sp,
                             modifier = Modifier.padding(vertical = 20.dp, horizontal = 8.dp),
                         )
                     }
                 }
                 items(entries, key = { it.id }) { e ->
-                    EntryRow(l, tbl, e) { if (!closed) entryTarget = e }
-                }
-                if (!closed) {
-                    item(key = "addbtn") {
-                        Button(
-                            onClick = { newEntry = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = cs.primaryContainer, contentColor = cs.onPrimaryContainer),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(46.dp),
-                        ) { Text(stringResource(R.string.add_entry, tbl.name), fontWeight = FontWeight.Bold) }
-                    }
-                }
-                item(key = "totalbar") {
-                    val parts = ArrayList<String>()
-                    for (c in tbl.columns) {
-                        if (c.kind != COL_TEXT && c.sumIt) {
-                            val v = LedgerCalc.colTotal(tbl, c, entries)
-                            parts.add(c.name + " " + LedgerCalc.withUnit(l, v, isMoneyCol(tbl, c)))
-                        }
-                    }
-                    if (parts.isNotEmpty()) {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 6.dp)
-                                .panel(cs.surfaceVariant, 16.dp)
-                                .padding(horizontal = 14.dp, vertical = 11.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(stringResource(R.string.table_total), color = cs.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Spacer(Modifier.size(10.dp))
-                            Text(
-                                parts.joinToString(" · "),
-                                color = cs.primary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                modifier = Modifier.weight(1f),
-                                textAlign = TextAlign.End,
-                            )
-                        }
-                    }
+                    val et2 = l.tables.firstOrNull { it.id == e.tableId }
+                    if (et2 != null) EntryRow(l, et2, e) { if (!closed) entryTarget = e }
                 }
             }
         }
@@ -468,15 +445,16 @@ fun LedgerDetail(vm: MainViewModel, l: Ledger) {
     }
 
     // dialogs
-    if (newEntry && tbl != null) {
+    val nt = newEntryTable
+    if (nt != null) {
         EntryDialog(
             ledger = l,
-            table = tbl,
+            table = nt,
             entry = null,
-            onDismiss = { newEntry = false },
+            onDismiss = { newEntryTable = null },
             onSave = { date, values ->
-                vm.saveEntry(l.id, 0L, tbl.id, batch.id, date, values)
-                newEntry = false
+                vm.saveEntry(l.id, 0L, nt.id, batch.id, date, values)
+                newEntryTable = null
             },
             onDelete = null,
         )
@@ -558,15 +536,16 @@ fun EntryRow(l: Ledger, t: TableDef, e: Entry, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                dateText + (if (title.isNotEmpty()) " · " + title else ""),
+                dateText + " · " + t.name,
                 color = cs.onSurface,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (subParts.isNotEmpty()) {
-                Text(subParts.joinToString(" · "), color = cs.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val second = (if (title.isNotEmpty()) listOf(title) else emptyList<String>()) + subParts
+            if (second.isNotEmpty()) {
+                Text(second.joinToString(" · "), color = cs.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         if (primary != null) {
@@ -1007,22 +986,22 @@ fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Wrap {
-                    Pill(stringResource(R.string.kind_text), kind == COL_TEXT, { kind = COL_TEXT })
-                    Pill(stringResource(R.string.kind_number), kind == COL_NUMBER, { kind = COL_NUMBER })
-                    Pill(stringResource(R.string.kind_money), kind == COL_MONEY, { kind = COL_MONEY })
-                    Pill(stringResource(R.string.kind_calc), kind == COL_CALC, { kind = COL_CALC })
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.kind_text), kind == COL_TEXT, { kind = COL_TEXT })
+                    SegPill(stringResource(R.string.kind_number), kind == COL_NUMBER, { kind = COL_NUMBER })
+                    SegPill(stringResource(R.string.kind_money), kind == COL_MONEY, { kind = COL_MONEY })
+                    SegPill(stringResource(R.string.kind_calc), kind == COL_CALC, { kind = COL_CALC })
                 }
                 if (kind == COL_CALC) {
                     Text(stringResource(R.string.calc_hint), color = cs.onSurfaceVariant, fontSize = 13.sp)
                     if (numeric.size < 2) {
                         Text(stringResource(R.string.calc_need_two), color = cs.error, fontSize = 13.sp)
                     } else {
-                        Wrap {
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             for (c in numeric) Pill(c.name, refA == c.id, { refA = c.id })
                         }
                         Text("×", color = cs.onSurfaceVariant, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                        Wrap {
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             for (c in numeric) Pill(c.name, refB == c.id, { refB = c.id })
                         }
                     }
@@ -1073,7 +1052,7 @@ fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, L
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(stringResource(R.string.line_pick_table), color = cs.onSurfaceVariant, fontSize = 13.sp)
-                Wrap {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (t in ledger.tables) Pill(t.name, tableId == t.id, {
                         tableId = t.id
                         colId = 0L
@@ -1081,15 +1060,15 @@ fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, L
                 }
                 if (table != null) {
                     Text(stringResource(R.string.line_pick_column), color = cs.onSurfaceVariant, fontSize = 13.sp)
-                    Wrap {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for (c in numeric) Pill(c.name, colId == c.id, { colId = c.id })
                     }
                 }
                 Text(stringResource(R.string.line_sign), color = cs.onSurfaceVariant, fontSize = 13.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill(stringResource(R.string.sign_plus), sign == 1, { sign = 1 })
-                    Pill(stringResource(R.string.sign_minus), sign == -1, { sign = -1 })
-                    Pill(stringResource(R.string.sign_info), sign == 0, { sign = 0 })
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.sign_plus), sign == 1, { sign = 1 })
+                    SegPill(stringResource(R.string.sign_minus), sign == -1, { sign = -1 })
+                    SegPill(stringResource(R.string.sign_info), sign == 0, { sign = 0 })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.line_money), color = cs.onSurface, modifier = Modifier.weight(1f), fontSize = 14.sp)

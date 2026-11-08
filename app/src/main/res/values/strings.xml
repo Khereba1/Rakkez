@@ -180,7 +180,7 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="opening_balance">Carried over</string>
     <string name="table_total">Total</string>
     <string name="no_tables">No tables yet. Open Structure to add one.</string>
-    <string name="entries_none">No entries yet. Tap + to add one.</string>
+    <string name="entries_none">Nothing recorded yet.\nUse the buttons above: each one records something (received, delivered, money...).</string>
     <string name="entries_none_closed">No entries in this batch.</string>
     <string name="date_label">Date</string>
     <string name="settle_button">Settle and close this batch</string>
@@ -244,4 +244,5 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="balance_left">Left</string>
     <string name="balance_total">Total</string>
     <string name="add_entry">Add entry to %1$s</string>
+    <string name="copy_csv_t">CSV: %1$s</string>
 </resources>

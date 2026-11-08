@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -122,8 +123,7 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
         Column(
             Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -163,27 +163,26 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
             }
 
             // the dial
-            DotRing(
-                progress = progress,
-                lit = accent,
-                dim = cs.outlineVariant,
-                modifier = Modifier
-                    .widthIn(max = 300.dp)
-                    .fillMaxWidth(0.8f)
-                    .aspectRatio(1f),
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        timeText,
-                        style = TextStyle(
-                            color = cs.onSurface,
-                            fontSize = 44.sp,
-                            fontWeight = FontWeight.Light,
-                            fontFeatureSettings = "tnum",
-                            letterSpacing = 0.sp,
-                        ),
-                    )
-                    Text(subText, color = cs.onSurfaceVariant, fontSize = 13.sp)
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                val side = minOf(maxWidth * 0.74f, maxHeight, 270.dp)
+                DotRing(
+                    progress = progress,
+                    lit = accent,
+                    dim = cs.outlineVariant,
+                    modifier = Modifier.size(side),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            timeText,
+                            style = TextStyle(
+                                color = cs.onSurface,
+                                fontSize = (side.value * 0.17f).sp,
+                                fontWeight = FontWeight.Light,
+                                fontFeatureSettings = "tnum",
+                            ),
+                        )
+                        Text(subText, color = cs.onSurfaceVariant, fontSize = 13.sp)
+                    }
                 }
             }
 
@@ -296,7 +295,6 @@ fun FocusScreen(vm: MainViewModel, onBeforeStart: () -> Unit) {
                     .clickable { vm.openOverlay(OVERLAY_TODAY) }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
-            Spacer(Modifier.height(4.dp))
         }
     }
 

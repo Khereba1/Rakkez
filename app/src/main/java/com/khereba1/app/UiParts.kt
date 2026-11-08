@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -104,6 +106,8 @@ fun Pill(
     modifier: Modifier = Modifier,
     accent: Color = MaterialTheme.colorScheme.primary,
     onAccent: Color = MaterialTheme.colorScheme.onPrimary,
+    hPad: Dp = 16.dp,
+    size: TextUnit = 14.sp,
 ) {
     val bg = if (selected) accent else MaterialTheme.colorScheme.surfaceVariant
     val fg = if (selected) onAccent else MaterialTheme.colorScheme.onSurfaceVariant
@@ -112,10 +116,10 @@ fun Pill(
             .clip(RoundedCornerShape(50))
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+            .padding(horizontal = hPad, vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(text, color = fg, fontSize = size, fontWeight = FontWeight.Medium, maxLines = 1, textAlign = TextAlign.Center)
     }
 }
 
@@ -286,4 +290,10 @@ fun CheckRow(label: String, detail: String, checked: Boolean, onToggle: () -> Un
         Text(label, Modifier.weight(1f), color = cs.onSurface, fontSize = 15.sp)
         Text(detail, color = cs.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.padding(end = 8.dp))
     }
+}
+
+/** Equal-width pill for a short row of choices that must fit on one line. */
+@Composable
+fun RowScope.SegPill(text: String, selected: Boolean, onClick: () -> Unit) {
+    Pill(text, selected, onClick, Modifier.weight(1f), hPad = 4.dp, size = 13.sp)
 }
