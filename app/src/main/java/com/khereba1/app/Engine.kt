@@ -111,7 +111,7 @@ object Engine {
     fun startBreak(c: Context) {
         val s = load(c)
         val st = Store.loadSettings(c)
-        val isLong = s.cycle >= st.longEvery
+        val isLong = st.cycleMode && s.cycle >= st.longEvery
         val minutes = if (isLong) st.longMin else st.shortMin
         val total = minutes * 60_000L
         val now = System.currentTimeMillis()
@@ -148,11 +148,11 @@ object Engine {
         schedule(c, now + s.remainingMs)
     }
 
-    /** Ends the current period early. A focus period of at least one minute is still recorded (as partial). */
+    /** Ends the current period early. With keep = true a focus period of at least one minute is recorded (as partial). */
     @Synchronized
-    fun stop(c: Context) {
+    fun stop(c: Context, keep: Boolean) {
         val s = load(c)
-        if (s.phase == PH_FOCUS) {
+        if (s.phase == PH_FOCUS && keep) {
             val now = System.currentTimeMillis()
             val elapsed = s.totalMs - s.remaining(now)
             if (elapsed >= 60_000L) recordSession(c, now - elapsed, elapsed, s.taskId, s.extra, true)
@@ -196,9 +196,10 @@ object Engine {
 
     private fun recordSession(c: Context, startAt: Long, ms: Long, taskId: Long, extra: Boolean, partial: Boolean) {
         Store.addSession(c, FocusSession(Store.newId(), startAt, ms, taskId, extra, partial))
-        if (taskId != 0L && !extra && !partial) {
+        if (taskId != 0L) {
+            val addSession = if (!extra && !partial) 1 else 0
             Store.editTasks(c) { list ->
-                list.map { t -> if (t.id == taskId) t.copy(spent = t.spent + 1) else t }
+                list.map { t -> if (t.id == taskId) t.copy(spent = t.spent + addSession, spentMs = t.spentMs + ms) else t }
             }
         }
     }

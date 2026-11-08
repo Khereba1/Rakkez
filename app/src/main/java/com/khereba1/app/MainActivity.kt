@@ -11,14 +11,20 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,7 +32,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,8 +89,12 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(i: Intent?) {
         if (i == null) return
         val tab = i.getIntExtra("tab", -1)
-        if (tab in 0..3) vm.openTab(tab)
-        if (i.getBooleanExtra("add", false)) vm.requestAdd()
+        if (tab == 0 || tab == 1) vm.openTab(tab)
+        if (tab == 2) vm.openOverlay(OVERLAY_TODAY)
+        if (i.getBooleanExtra("add", false)) {
+            vm.openTab(0)
+            vm.requestPlus(PLUS_TASK)
+        }
     }
 
     private fun askNotificationPermission() {
@@ -99,60 +110,122 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// tab indexes: 0 tasks, 1 focus, 3 notes, 4 ledger (2 is the center "+" button, not a screen)
 @Composable
 fun AppRoot(vm: MainViewModel, onLanguage: (String) -> Unit, onBeforeStart: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    BackHandler(enabled = vm.tab != 0) { vm.openTab(0) }
+    val inLedgerDetail = vm.tab == 4 && vm.openLedgerId != 0L
+    BackHandler(enabled = vm.overlay != OVERLAY_NONE) { vm.closeOverlay() }
+    BackHandler(enabled = vm.overlay == OVERLAY_NONE && inLedgerDetail) { vm.closeLedgerView() }
+    BackHandler(enabled = vm.overlay == OVERLAY_NONE && !inLedgerDetail && vm.tab != 0) { vm.openTab(0) }
     Surface(modifier = Modifier.fillMaxSize(), color = cs.background) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
-                when (vm.tab) {
-                    0 -> TasksScreen(vm = vm, onPlay = { id ->
-                        vm.selectTask(id)
-                        vm.openTab(1)
-                    })
-                    1 -> FocusScreen(vm = vm, onBeforeStart = onBeforeStart)
-                    2 -> TodayScreen(vm = vm)
-                    else -> SettingsScreen(vm = vm, onLanguage = onLanguage)
+                if (vm.overlay == OVERLAY_SETTINGS) {
+                    SettingsScreen(vm = vm, onLanguage = onLanguage)
+                } else if (vm.overlay == OVERLAY_TODAY) {
+                    TodayScreen(vm = vm)
+                } else {
+                    when (vm.tab) {
+                        0 -> TasksScreen(vm = vm, onPlay = { id -> vm.playTask(id) })
+                        1 -> FocusScreen(vm = vm, onBeforeStart = onBeforeStart)
+                        3 -> NotesPlaceholder(vm)
+                        else -> LedgerRoot(vm)
+                    }
                 }
             }
-            NavBar(current = vm.tab, onSelect = { vm.openTab(it) })
+            NavBar(
+                current = if (vm.overlay == OVERLAY_NONE) vm.tab else -1,
+                onSelect = { vm.openTab(it) },
+                onPlus = {
+                    val code = when (vm.tab) {
+                        0 -> PLUS_TASK
+                        1 -> PLUS_IDEA_FOCUS
+                        3 -> PLUS_IDEA_NOTES
+                        else -> PLUS_LEDGER
+                    }
+                    if (vm.overlay != OVERLAY_NONE) vm.closeOverlay()
+                    vm.requestPlus(code)
+                },
+            )
         }
     }
     if (vm.timer.phase == PH_ASK) AskDialog(vm)
+    RestoreDialog(vm)
 }
 
 @Composable
-fun NavBar(current: Int, onSelect: (Int) -> Unit) {
+fun NotesPlaceholder(vm: MainViewModel) {
     val cs = MaterialTheme.colorScheme
-    val labels = listOf(R.string.tab_tasks, R.string.tab_focus, R.string.tab_today, R.string.tab_settings)
+    // the "+" on this tab is not wired yet in this version
+    androidx.compose.runtime.LaunchedEffect(vm.plusRequest) {
+        if (vm.plusRequest == PLUS_IDEA_NOTES) vm.consumePlus()
+    }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(stringResource(R.string.tab_notes), color = cs.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.size(10.dp))
+        Text(stringResource(R.string.notes_soon), color = cs.onSurfaceVariant, fontSize = 15.sp, lineHeight = 23.sp)
+    }
+}
+
+@Composable
+fun NavBar(current: Int, onSelect: (Int) -> Unit, onPlus: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(30.dp))
             .background(cs.surface)
             .padding(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        for (i in labels.indices) {
-            val sel = i == current
-            Box(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(if (sel) cs.primaryContainer else cs.surface)
-                    .clickable { onSelect(i) }
-                    .padding(vertical = 11.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    stringResource(labels[i]),
-                    color = if (sel) cs.onPrimaryContainer else cs.onSurfaceVariant,
-                    fontSize = 13.sp,
-                    fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1,
-                )
+        NavItem(Modifier.weight(1f), R.string.tab_tasks, current == 0) { onSelect(0) }
+        NavItem(Modifier.weight(1f), R.string.tab_focus, current == 1) { onSelect(1) }
+        Box(
+            Modifier
+                .padding(horizontal = 6.dp)
+                .size(50.dp)
+                .clip(CircleShape)
+                .background(cs.primary)
+                .clickable(onClick = onPlus),
+            contentAlignment = Alignment.Center,
+        ) {
+            val c = cs.onPrimary
+            Canvas(Modifier.size(22.dp)) {
+                val w = 3.dp.toPx()
+                drawLine(c, Offset(size.width * 0.5f, size.height * 0.12f), Offset(size.width * 0.5f, size.height * 0.88f), w, StrokeCap.Round)
+                drawLine(c, Offset(size.width * 0.12f, size.height * 0.5f), Offset(size.width * 0.88f, size.height * 0.5f), w, StrokeCap.Round)
             }
         }
+        NavItem(Modifier.weight(1f), R.string.tab_notes, current == 3) { onSelect(3) }
+        NavItem(Modifier.weight(1f), R.string.tab_ledger, current == 4) { onSelect(4) }
+    }
+}
+
+@Composable
+private fun NavItem(modifier: Modifier, label: Int, selected: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        modifier
+            .clip(RoundedCornerShape(26.dp))
+            .background(if (selected) cs.primaryContainer else cs.surface)
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            stringResource(label),
+            color = if (selected) cs.onPrimaryContainer else cs.onSurfaceVariant,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+        )
     }
 }

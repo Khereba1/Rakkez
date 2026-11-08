@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -57,14 +58,14 @@ fun TasksScreen(vm: MainViewModel, onPlay: (Long) -> Unit) {
     val done = vm.tasks.filter { it.done }.sortedByDescending { it.doneAt }
     val dateText = remember { SimpleDateFormat("EEEE d MMMM", dateLocale()).format(Date()) }
 
-    LaunchedEffect(vm.addRequest) {
-        if (vm.addRequest > 0) {
+    LaunchedEffect(vm.plusRequest) {
+        if (vm.plusRequest == PLUS_TASK) {
             try {
                 requester.requestFocus()
             } catch (e: Throwable) {
                 // field not ready yet: ignore
             }
-            vm.consumeAdd()
+            vm.consumePlus()
         }
     }
 
@@ -76,15 +77,21 @@ fun TasksScreen(vm: MainViewModel, onPlay: (Long) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 22.dp, end = 22.dp, top = 22.dp, bottom = 10.dp)) {
-            Text(dateText, color = cs.onSurfaceVariant, fontSize = 14.sp)
-            Spacer(Modifier.height(2.dp))
-            Text(
-                stringResource(R.string.tasks_summary, open.size.toString(), done.size.toString()),
-                color = cs.onBackground,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold,
-            )
+        Row(
+            Modifier.padding(start = 22.dp, end = 16.dp, top = 22.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(dateText, color = cs.onSurfaceVariant, fontSize = 14.sp)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    stringResource(R.string.tasks_summary, open.size.toString(), done.size.toString()),
+                    color = cs.onBackground,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            GearButton { vm.openOverlay(OVERLAY_SETTINGS) }
         }
 
         Row(
@@ -189,8 +196,8 @@ fun TasksScreen(vm: MainViewModel, onPlay: (Long) -> Unit) {
         TaskDialog(
             task = current,
             onDismiss = { editing = null },
-            onSave = { title, est ->
-                vm.editTask(current.id, title, est)
+            onSave = { title, est, plan, smin ->
+                vm.editTask(current.id, title, est, plan, smin)
                 editing = null
             },
             onDelete = {
@@ -225,7 +232,18 @@ fun TaskRow(task: Task, onToggle: () -> Unit, onEdit: () -> Unit, onPlay: () -> 
                 fontSize = 16.sp,
                 textDecoration = if (task.done) TextDecoration.LineThrough else null,
             )
-            if (task.estimate > 0 || task.spent > 0) {
+            val ctx = LocalContext.current
+            val spentMin = task.spentMs / 60000L
+            val parts = ArrayList<String>()
+            if (task.planMin > 0) {
+                parts.add(fmtMinutes(ctx, spentMin) + " / " + fmtMinutes(ctx, task.planMin.toLong()))
+            } else if (task.estimate > 0) {
+                parts.add(task.spent.toString() + "/" + task.estimate.toString() + " " + stringResource(R.string.sessions_word))
+            } else if (task.spentMs >= 60000L) {
+                parts.add(fmtMinutes(ctx, spentMin))
+            }
+            if (task.sessionMin > 0) parts.add(stringResource(R.string.session_len_short, task.sessionMin.toString()))
+            if (parts.isNotEmpty()) {
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier
@@ -234,8 +252,7 @@ fun TaskRow(task: Task, onToggle: () -> Unit, onEdit: () -> Unit, onPlay: () -> 
                             .background(cs.primary)
                     )
                     Spacer(Modifier.size(6.dp))
-                    val label = if (task.estimate > 0) task.spent.toString() + "/" + task.estimate.toString() else task.spent.toString()
-                    Text(label, color = cs.onSurfaceVariant, fontSize = 12.sp)
+                    Text(parts.joinToString(" \u00B7 "), color = cs.onSurfaceVariant, fontSize = 12.sp)
                 }
             }
         }
@@ -244,10 +261,13 @@ fun TaskRow(task: Task, onToggle: () -> Unit, onEdit: () -> Unit, onPlay: () -> 
 }
 
 @Composable
-fun TaskDialog(task: Task, onDismiss: () -> Unit, onSave: (String, Int) -> Unit, onDelete: () -> Unit) {
+fun TaskDialog(task: Task, onDismiss: () -> Unit, onSave: (String, Int, Int, Int) -> Unit, onDelete: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     var title by remember { mutableStateOf(task.title) }
+    var byTime by remember { mutableStateOf(task.planMin > 0) }
     var est by remember { mutableStateOf(task.estimate) }
+    var plan by remember { mutableStateOf(task.planMin) }
+    var smin by remember { mutableStateOf(task.sessionMin) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.task_edit_title)) },
@@ -259,17 +279,39 @@ fun TaskDialog(task: Task, onDismiss: () -> Unit, onSave: (String, Int) -> Unit,
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill(stringResource(R.string.plan_by_sessions), !byTime, { byTime = false })
+                    Pill(stringResource(R.string.plan_by_time), byTime, { byTime = true })
+                }
+                if (byTime) {
+                    Stepper(
+                        label = stringResource(R.string.plan_time_label),
+                        value = if (plan == 0) "\u2014" else stringResource(R.string.unit_min, plan.toString()),
+                        onChange = { d -> plan = (plan + d * 5).coerceIn(0, 720) },
+                    )
+                } else {
+                    Stepper(
+                        label = stringResource(R.string.task_estimate),
+                        value = if (est == 0) "\u2014" else est.toString(),
+                        onChange = { d -> est = (est + d).coerceIn(0, 40) },
+                    )
+                }
                 Stepper(
-                    label = stringResource(R.string.task_estimate),
-                    value = if (est == 0) "—" else est.toString(),
-                    onMinus = { if (est > 0) est -= 1 },
-                    onPlus = { if (est < 20) est += 1 },
+                    label = stringResource(R.string.task_session_len),
+                    value = if (smin == 0) stringResource(R.string.default_word) else stringResource(R.string.unit_min, smin.toString()),
+                    onChange = { d -> smin = (smin + d).coerceIn(0, 180) },
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { if (title.isNotBlank()) onSave(title, est) else onDismiss() }) {
+            TextButton(onClick = {
+                if (title.isNotBlank()) {
+                    onSave(title, if (byTime) 0 else est, if (byTime) plan else 0, smin)
+                } else {
+                    onDismiss()
+                }
+            }) {
                 Text(stringResource(R.string.save))
             }
         },

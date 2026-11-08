@@ -14,6 +14,12 @@ data class Task(
     val spent: Int = 0,
     val createdAt: Long = 0L,
     val doneAt: Long = 0L,
+    /** Planned total time in minutes (0 = not set). `estimate` is the planned number of sessions (0 = not set). */
+    val planMin: Int = 0,
+    /** Custom focus length for this task in minutes (0 = use the default). */
+    val sessionMin: Int = 0,
+    /** Total focused time spent on this task (milliseconds, partial sessions included). */
+    val spentMs: Long = 0L,
 )
 
 /** One finished (or manually stopped = partial) focus period. */
@@ -40,6 +46,9 @@ data class Settings(
     val longEvery: Int = 4,
     val goalMin: Int = 120,
     val keepOn: Boolean = true,
+    /** false = a single session (default); true = cycle of sessions and breaks. */
+    val cycleMode: Boolean = false,
+    val autoBackup: Boolean = false,
 )
 
 /** Start of the day (00:00) of the given time, optionally shifted by whole days. */
@@ -87,6 +96,9 @@ object Store {
                         spent = o.optInt("spent", 0),
                         createdAt = o.optLong("created", 0L),
                         doneAt = o.optLong("doneAt", 0L),
+                        planMin = o.optInt("plan", 0),
+                        sessionMin = o.optInt("smin", 0),
+                        spentMs = o.optLong("spms", 0L),
                     )
                 )
             }
@@ -108,6 +120,9 @@ object Store {
             o.put("spent", t.spent)
             o.put("created", t.createdAt)
             o.put("doneAt", t.doneAt)
+            o.put("plan", t.planMin)
+            o.put("smin", t.sessionMin)
+            o.put("spms", t.spentMs)
             arr.put(o)
         }
         prefs(c).edit().putString("tasks", arr.toString()).commit()
@@ -250,6 +265,8 @@ object Store {
             longEvery = p.getInt("s_every", d.longEvery).coerceIn(2, 8),
             goalMin = p.getInt("s_goal", d.goalMin).coerceIn(15, 720),
             keepOn = p.getBoolean("s_keepon", d.keepOn),
+            cycleMode = p.getBoolean("s_cycle", d.cycleMode),
+            autoBackup = p.getBoolean("s_auto", d.autoBackup),
         )
     }
 
@@ -262,6 +279,8 @@ object Store {
             .putInt("s_every", s.longEvery)
             .putInt("s_goal", s.goalMin)
             .putBoolean("s_keepon", s.keepOn)
+            .putBoolean("s_cycle", s.cycleMode)
+            .putBoolean("s_auto", s.autoBackup)
             .commit()
     }
 }

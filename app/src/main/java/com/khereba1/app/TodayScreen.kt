@@ -64,7 +64,10 @@ fun TodayScreen(vm: MainViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 22.dp),
     ) {
-        Text(stringResource(R.string.today_title), color = cs.onBackground, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BackChevron { vm.closeOverlay() }
+            Text(stringResource(R.string.today_title), color = cs.onBackground, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        }
         Spacer(Modifier.height(16.dp))
 
         // total + goal ring

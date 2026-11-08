@@ -29,7 +29,11 @@ You cannot compile: be careful and conservative. A mistake shows up only as a fa
 - MainActivity.kt: activity (language wrap, notification permission asked on first Start, widget deep links via extras "tab"/"add"), AppRoot, NavBar, AskDialog host
 - Theme.kt: "ink and saffron" colors (amber = focus, mint = break), light + dark
 - UiParts.kt: hand-drawn checkbox/play button, Pill, Stepper, DotRing (60-tick timer face)
-- TasksScreen.kt / FocusScreen.kt / TodayScreen.kt / SettingsScreen.kt: the four tabs (+ their dialogs; AskDialog and presets live in FocusScreen.kt)
+- TasksScreen.kt / FocusScreen.kt: tabs 'المهام' and 'تركيز' (AskDialog, presets 15/25/45 and hold-to-repeat stepper live in FocusScreen.kt)
+- TodayScreen.kt / SettingsScreen.kt: overlays opened from the Focus footer / the gear button (SettingsScreen.kt also has RestoreDialog and the backup UI)
+- LedgerModel.kt / LedgerScreens.kt: generic 'حسابات' feature (ledgers -> tables/columns, summary lines, batches with settle/close, copy-as-text); data in files/ledger.json
+- Backup.kt: selective backup zip to Download/Rakkez/backups via MediaStore, restore via file picker, optional daily auto backup on app open
+- Navigation: bottom bar tasks | focus | center + (context-aware, MainViewModel.plusRequest) | notes (placeholder until the notes phase) | accounts
 - res/layout/widget_*.xml, res/xml/widget_*_info.xml, res/drawable (icon, widget shapes), values + values-ar strings (every string exists in both)
 
 ## Design rules used in this app

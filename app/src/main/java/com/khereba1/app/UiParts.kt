@@ -3,6 +3,7 @@ package com.khereba1.app
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -17,11 +18,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -31,6 +35,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -112,22 +118,46 @@ fun Pill(
     }
 }
 
+/**
+ * Round +/- button. A tap changes by one step; holding it keeps repeating, faster the longer you hold.
+ * onStep receives a signed amount (dir x 1, later dir x 5).
+ */
 @Composable
-fun StepBtn(glyph: String, onClick: () -> Unit) {
+fun HoldBtn(glyph: String, dir: Int, onStep: (Int) -> Unit, modifier: Modifier = Modifier, size: Dp = 40.dp) {
+    val scope = rememberCoroutineScope()
+    val latest = rememberUpdatedState(onStep)
     Box(
-        modifier = Modifier
-            .size(38.dp)
+        modifier = modifier
+            .size(size)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick),
+            .pointerInput(dir) {
+                detectTapGestures(
+                    onPress = {
+                        latest.value(dir)
+                        val job = scope.launch {
+                            delay(450L)
+                            var n = 0
+                            while (true) {
+                                val amt = if (n < 8) 1 else 5
+                                latest.value(dir * amt)
+                                n += 1
+                                delay(if (n < 8) 150L else 120L)
+                            }
+                        }
+                        tryAwaitRelease()
+                        job.cancel()
+                    },
+                )
+            },
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+        Text(glyph, fontSize = 22.sp, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
 @Composable
-fun Stepper(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Unit) {
+fun Stepper(label: String, value: String, onChange: (Int) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -136,7 +166,7 @@ fun Stepper(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Uni
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
-        StepBtn("−", onMinus)
+        HoldBtn("\u2212", -1, onChange)
         Text(
             value,
             Modifier.widthIn(min = 64.dp),
@@ -144,7 +174,7 @@ fun Stepper(label: String, value: String, onMinus: () -> Unit, onPlus: () -> Uni
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        StepBtn("+", onPlus)
+        HoldBtn("+", 1, onChange)
     }
 }
 
@@ -180,5 +210,27 @@ fun DotRing(
             }
         }
         content()
+    }
+}
+
+/** The little "sliders" button that opens Settings (drawn by hand). */
+@Composable
+fun GearButton(onClick: () -> Unit) {
+    val c = MaterialTheme.colorScheme.onSurface
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(22.dp)) {
+            val w = 2.dp.toPx()
+            drawLine(c, Offset(size.width * 0.12f, size.height * 0.30f), Offset(size.width * 0.88f, size.height * 0.30f), w, StrokeCap.Round)
+            drawLine(c, Offset(size.width * 0.12f, size.height * 0.70f), Offset(size.width * 0.88f, size.height * 0.70f), w, StrokeCap.Round)
+            drawCircle(c, size.width * 0.14f, Offset(size.width * 0.65f, size.height * 0.30f))
+            drawCircle(c, size.width * 0.14f, Offset(size.width * 0.35f, size.height * 0.70f))
+        }
     }
 }

@@ -2,14 +2,27 @@ package com.khereba1.app
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+const val OVERLAY_NONE = 0
+const val OVERLAY_SETTINGS = 1
+const val OVERLAY_TODAY = 2
+
+// values for MainViewModel.plusRequest (what the center "+" asked for)
+const val PLUS_TASK = 1
+const val PLUS_IDEA_FOCUS = 2
+const val PLUS_IDEA_NOTES = 3
+const val PLUS_LEDGER = 4
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app: Application = application
@@ -28,13 +41,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var tab by mutableStateOf(0)
         private set
-    var addRequest by mutableStateOf(0)
+    var overlay by mutableStateOf(OVERLAY_NONE)
+        private set
+    var plusRequest by mutableStateOf(0)
+        private set
+
+    var ledgers by mutableStateOf<List<Ledger>>(emptyList())
+        private set
+    var openLedgerId by mutableStateOf(0L)
+        private set
+    var openBatchId by mutableStateOf(0L)
+        private set
+
+    var backupMsg by mutableStateOf("")
+        private set
+    var backupBusy by mutableStateOf(false)
+        private set
+    var restoreUri by mutableStateOf<Uri?>(null)
+        private set
+    var restoreInfo by mutableStateOf<BackupInfo?>(null)
         private set
 
     private var ticker: Job? = null
 
     init {
         refreshAll(false)
+        ledgers = LedgerStore.load(app)
+        viewModelScope.launch(Dispatchers.IO) { Backup.autoIfDue(app) }
     }
 
     // ---------------- lifecycle ----------------
@@ -82,14 +115,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openTab(index: Int) {
         tab = index
+        overlay = OVERLAY_NONE
     }
 
-    fun requestAdd() {
-        addRequest += 1
+    fun openOverlay(which: Int) {
+        overlay = which
     }
 
-    fun consumeAdd() {
-        addRequest = 0
+    fun closeOverlay() {
+        overlay = OVERLAY_NONE
+    }
+
+    fun requestPlus(code: Int) {
+        plusRequest = code
+    }
+
+    fun consumePlus() {
+        plusRequest = 0
     }
 
     // ---------------- tasks ----------------
@@ -101,10 +143,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshAll(true)
     }
 
-    fun editTask(id: Long, title: String, estimate: Int) {
+    fun editTask(id: Long, title: String, estimate: Int, planMin: Int, sessionMin: Int) {
         val clean = title.trim().take(200)
         if (clean.isEmpty()) return
-        Store.editTasks(app) { list -> list.map { t -> if (t.id == id) t.copy(title = clean, estimate = estimate) else t } }
+        Store.editTasks(app) { list ->
+            list.map { t -> if (t.id == id) t.copy(title = clean, estimate = estimate, planMin = planMin, sessionMin = sessionMin) else t }
+        }
         refreshAll(true)
     }
 
@@ -122,6 +166,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun selectTask(id: Long) {
         Engine.selectTask(app, id)
         refreshAll(true)
+    }
+
+    /** The play button on a task: select it, apply its own session length if it has one, and go to Focus. */
+    fun playTask(id: Long) {
+        Engine.selectTask(app, id)
+        val t = tasks.firstOrNull { it.id == id }
+        if (t != null && t.sessionMin > 0 && timer.phase == PH_IDLE) {
+            Store.saveSettings(app, settings.copy(focusMin = t.sessionMin.coerceIn(1, 180)))
+        }
+        refreshAll(true)
+        openTab(1)
     }
 
     // ---------------- timer ----------------
@@ -151,8 +206,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshAll(true)
     }
 
-    fun stop() {
-        Engine.stop(app)
+    fun stop(keep: Boolean) {
+        Engine.stop(app, keep)
         refreshAll(true)
     }
 
@@ -161,7 +216,63 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshAll(true)
     }
 
-    // ---------------- settings ----------------
+    // ---------------- timer settings (all editable from the Focus screen) ----------------
+
+    fun adjustFocus(delta: Int) {
+        val s = settings
+        val v = (s.focusMin + delta).coerceIn(1, 180)
+        if (v != s.focusMin) {
+            Store.saveSettings(app, s.copy(focusMin = v))
+            settings = Store.loadSettings(app)
+        }
+    }
+
+    fun setFocusMinutes(v: Int) {
+        Store.saveSettings(app, settings.copy(focusMin = v.coerceIn(1, 180)))
+        settings = Store.loadSettings(app)
+    }
+
+    fun adjustShort(delta: Int) {
+        val s = settings
+        val v = (s.shortMin + delta).coerceIn(1, 60)
+        if (v != s.shortMin) {
+            Store.saveSettings(app, s.copy(shortMin = v))
+            settings = Store.loadSettings(app)
+        }
+    }
+
+    fun adjustLong(delta: Int) {
+        val s = settings
+        val v = (s.longMin + delta).coerceIn(1, 90)
+        if (v != s.longMin) {
+            Store.saveSettings(app, s.copy(longMin = v))
+            settings = Store.loadSettings(app)
+        }
+    }
+
+    fun adjustEvery(delta: Int) {
+        val s = settings
+        val v = (s.longEvery + delta).coerceIn(2, 8)
+        if (v != s.longEvery) {
+            Store.saveSettings(app, s.copy(longEvery = v))
+            settings = Store.loadSettings(app)
+        }
+    }
+
+    fun changeCycleMode(on: Boolean) {
+        Store.saveSettings(app, settings.copy(cycleMode = on))
+        settings = Store.loadSettings(app)
+    }
+
+    /** Back to 25 min, 5 / 15 min breaks, 4 sessions per cycle, single-session mode. */
+    fun resetTimerDefaults() {
+        val d = Settings()
+        Store.saveSettings(
+            app,
+            settings.copy(focusMin = d.focusMin, shortMin = d.shortMin, longMin = d.longMin, longEvery = d.longEvery, cycleMode = d.cycleMode)
+        )
+        settings = Store.loadSettings(app)
+    }
 
     fun applySettings(s: Settings) {
         Store.saveSettings(app, s)
@@ -200,5 +311,239 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (s.startAt >= start) sum += s.durationMs
         }
         return sum
+    }
+
+    // ---------------- ledgers ----------------
+
+    private fun mutateLedger(id: Long, change: (Ledger) -> Ledger) {
+        LedgerStore.update(app) { list -> list.map { l -> if (l.id == id) change(l) else l } }
+        ledgers = LedgerStore.load(app)
+    }
+
+    private fun defaultBatchId(l: Ledger): Long {
+        val open = l.batches.lastOrNull { it.closedAt == 0L }
+        if (open != null) return open.id
+        return l.batches.lastOrNull()?.id ?: 0L
+    }
+
+    fun openLedger(id: Long) {
+        val l = ledgers.firstOrNull { it.id == id } ?: return
+        openLedgerId = id
+        openBatchId = defaultBatchId(l)
+    }
+
+    fun closeLedgerView() {
+        openLedgerId = 0L
+        openBatchId = 0L
+    }
+
+    fun selectBatch(id: Long) {
+        openBatchId = id
+    }
+
+    fun createLedger(kind: Int, name: String) {
+        val clean = name.trim().take(60)
+        val finalName = if (clean.isEmpty()) app.getString(R.string.ledger_default_name) else clean
+        val l = LedgerTemplates.create(app, kind, finalName)
+        LedgerStore.update(app) { list -> list + l }
+        ledgers = LedgerStore.load(app)
+        openLedger(l.id)
+    }
+
+    fun deleteLedger(id: Long) {
+        LedgerStore.update(app) { list -> list.filter { it.id != id } }
+        ledgers = LedgerStore.load(app)
+        closeLedgerView()
+    }
+
+    fun renameLedger(id: Long, name: String, unit: String, balanceLabel: String) {
+        val n = name.trim().take(60)
+        if (n.isEmpty()) return
+        mutateLedger(id) { l -> l.copy(name = n, unit = unit.trim().take(8), balanceLabel = balanceLabel.trim().take(30)) }
+    }
+
+    fun saveEntry(ledgerId: Long, entryId: Long, tableId: Long, batchId: Long, date: Long, values: Map<Long, String>) {
+        mutateLedger(ledgerId) { l ->
+            if (entryId == 0L) {
+                l.copy(entries = l.entries + Entry(Store.newId(), tableId, batchId, date, values))
+            } else {
+                l.copy(entries = l.entries.map { e -> if (e.id == entryId) e.copy(date = date, values = values) else e })
+            }
+        }
+    }
+
+    fun deleteEntry(ledgerId: Long, entryId: Long) {
+        mutateLedger(ledgerId) { l -> l.copy(entries = l.entries.filter { it.id != entryId }) }
+    }
+
+    fun addTable(ledgerId: Long, name: String) {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return
+        val cols = listOf(
+            ColumnDef(Store.newId(), app.getString(R.string.col_item), COL_TEXT),
+            ColumnDef(Store.newId(), app.getString(R.string.col_amount), COL_MONEY),
+        )
+        mutateLedger(ledgerId) { l -> l.copy(tables = l.tables + TableDef(Store.newId(), n, cols)) }
+    }
+
+    fun deleteTable(ledgerId: Long, tableId: Long) {
+        mutateLedger(ledgerId) { l ->
+            l.copy(
+                tables = l.tables.filter { it.id != tableId },
+                lines = l.lines.filter { it.tableId != tableId },
+                entries = l.entries.filter { it.tableId != tableId },
+            )
+        }
+    }
+
+    fun renameTable(ledgerId: Long, tableId: Long, name: String) {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return
+        mutateLedger(ledgerId) { l -> l.copy(tables = l.tables.map { t -> if (t.id == tableId) t.copy(name = n) else t }) }
+    }
+
+    fun addColumn(ledgerId: Long, tableId: Long, name: String, kind: Int, sumIt: Boolean, refA: Long, refB: Long) {
+        val n = name.trim().take(30)
+        if (n.isEmpty()) return
+        if (kind == COL_CALC && (refA == 0L || refB == 0L)) return
+        val col = ColumnDef(Store.newId(), n, kind, sumIt, refA, refB)
+        mutateLedger(ledgerId) { l -> l.copy(tables = l.tables.map { t -> if (t.id == tableId) t.copy(columns = t.columns + col) else t }) }
+    }
+
+    fun deleteColumn(ledgerId: Long, tableId: Long, colId: Long) {
+        mutateLedger(ledgerId) { l ->
+            l.copy(
+                tables = l.tables.map { t ->
+                    if (t.id == tableId) {
+                        t.copy(columns = t.columns.filter { c -> c.id != colId && !(c.kind == COL_CALC && (c.refA == colId || c.refB == colId)) })
+                    } else {
+                        t
+                    }
+                },
+                lines = l.lines.filter { line -> !(line.tableId == tableId && line.colId == colId) },
+            )
+        }
+    }
+
+    fun addLine(ledgerId: Long, label: String, tableId: Long, colId: Long, sign: Int, money: Boolean) {
+        val n = label.trim().take(40)
+        if (n.isEmpty() || tableId == 0L || colId == 0L) return
+        mutateLedger(ledgerId) { l -> l.copy(lines = l.lines + SummaryLine(Store.newId(), n, tableId, colId, sign, money)) }
+    }
+
+    fun deleteLine(ledgerId: Long, lineId: Long) {
+        mutateLedger(ledgerId) { l -> l.copy(lines = l.lines.filter { it.id != lineId }) }
+    }
+
+    /** Starts a new batch without settling (the old one stays open until you settle it). */
+    fun newBatch(ledgerId: Long, name: String) {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return
+        val b = Batch(Store.newId(), n, System.currentTimeMillis())
+        mutateLedger(ledgerId) { l -> l.copy(batches = l.batches + b) }
+        openBatchId = b.id
+    }
+
+    /** Settle and close a batch. If newName is not blank a new batch is opened (carrying the balance if asked). */
+    fun settle(ledgerId: Long, batchId: Long, carry: Boolean, newName: String) {
+        val l = ledgers.firstOrNull { it.id == ledgerId } ?: return
+        val b = l.batches.firstOrNull { it.id == batchId } ?: return
+        val text = LedgerCalc.fullText(l, b, app.getString(R.string.opening_balance))
+        val bal = LedgerCalc.balance(l, b)
+        val now = System.currentTimeMillis()
+        val clean = newName.trim().take(40)
+        val nb = if (clean.isNotEmpty()) Batch(Store.newId(), clean, now, 0L, if (carry) bal else 0.0) else null
+        mutateLedger(ledgerId) { led ->
+            val closed = led.batches.map { x -> if (x.id == batchId) x.copy(closedAt = now, closedText = text) else x }
+            led.copy(batches = if (nb != null) closed + nb else closed)
+        }
+        openBatchId = nb?.id ?: batchId
+    }
+
+    fun reopenBatch(ledgerId: Long, batchId: Long) {
+        mutateLedger(ledgerId) { l ->
+            l.copy(batches = l.batches.map { x -> if (x.id == batchId) x.copy(closedAt = 0L, closedText = "") else x })
+        }
+    }
+
+    fun deleteBatch(ledgerId: Long, batchId: Long) {
+        mutateLedger(ledgerId) { l ->
+            l.copy(batches = l.batches.filter { it.id != batchId }, entries = l.entries.filter { it.batchId != batchId })
+        }
+        val l = ledgers.firstOrNull { it.id == ledgerId }
+        if (l != null) openBatchId = defaultBatchId(l)
+    }
+
+    fun copyToClipboard(text: String) {
+        try {
+            val cm = app.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("rakkez", text))
+        } catch (e: Throwable) {
+            AppLog.log("COPY", "Clipboard failed", e)
+        }
+    }
+
+    // ---------------- backup / restore ----------------
+
+    fun runBackup(basic: Boolean, ledger: Boolean) {
+        if (backupBusy) return
+        if (!basic && !ledger) {
+            backupMsg = app.getString(R.string.backup_pick_something)
+            return
+        }
+        backupBusy = true
+        backupMsg = ""
+        viewModelScope.launch {
+            val msg = withContext(Dispatchers.IO) {
+                try {
+                    val name = Backup.create(app, basic, ledger, false)
+                    app.getString(R.string.backup_done, name)
+                } catch (e: Throwable) {
+                    AppLog.log("BACKUP", "Backup failed", e)
+                    app.getString(R.string.backup_failed)
+                }
+            }
+            backupMsg = msg
+            backupBusy = false
+        }
+    }
+
+    fun prepareRestore(uri: Uri) {
+        viewModelScope.launch {
+            val info = withContext(Dispatchers.IO) { Backup.readInfo(app, uri) }
+            if (info == null) {
+                backupMsg = app.getString(R.string.restore_bad_file)
+            } else {
+                restoreUri = uri
+                restoreInfo = info
+            }
+        }
+    }
+
+    fun cancelRestore() {
+        restoreUri = null
+        restoreInfo = null
+    }
+
+    fun confirmRestore(basic: Boolean, ledger: Boolean) {
+        val uri = restoreUri ?: return
+        restoreUri = null
+        restoreInfo = null
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) { Backup.restore(app, uri, basic, ledger) }
+            refreshAll(true)
+            ledgers = LedgerStore.load(app)
+            closeLedgerView()
+            backupMsg = app.getString(if (ok) R.string.restore_done else R.string.restore_failed)
+        }
+    }
+
+    fun changeAutoBackup(on: Boolean) {
+        Store.saveSettings(app, settings.copy(autoBackup = on))
+        settings = Store.loadSettings(app)
+    }
+
+    fun clearBackupMsg() {
+        backupMsg = ""
     }
 }
