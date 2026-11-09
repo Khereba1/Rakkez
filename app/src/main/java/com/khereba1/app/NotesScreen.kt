@@ -307,63 +307,57 @@ fun NotesList(vm: MainViewModel) {
             onDismiss = { confirmSel = false },
         )
     }
-    if (showPlus) {
-        AlertDialog(
-            onDismissRequest = { showPlus = false },
-            title = { Text(stringResource(R.string.plus_title)) },
-            text = {
-                Column {
-                    PlusRow("\u270D", stringResource(R.string.plus_text)) {
-                        showPlus = false
-                        vm.newNote(1)
-                    }
-                    PlusRow("\uD83C\uDFA4", stringResource(R.string.cap_voice)) {
-                        showPlus = false
-                        vm.newNote(2)
-                    }
-                    PlusRow("\uD83D\uDCF7", stringResource(R.string.cap_photo)) {
-                        showPlus = false
-                        val f = NoteStore.newMediaFile(ctx, "jpg")
-                        pendingCap = f
-                        try {
-                            photoCap.launch(NoteMedia.uriFor(ctx, f))
-                        } catch (e: Throwable) {
-                            pendingCap = null
-                            toast(R.string.note_no_camera)
-                        }
-                    }
-                    PlusRow("\uD83C\uDFA5", stringResource(R.string.cap_video)) {
-                        showPlus = false
-                        val f = NoteStore.newMediaFile(ctx, "mp4")
-                        pendingCap = f
-                        try {
-                            videoCap.launch(NoteMedia.uriFor(ctx, f))
-                        } catch (e: Throwable) {
-                            pendingCap = null
-                            toast(R.string.note_no_camera)
-                        }
-                    }
-                    PlusRow("\uD83D\uDDBC", stringResource(R.string.plus_gallery)) {
-                        showPlus = false
-                        try {
-                            gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-                        } catch (e: Throwable) {
-                            AppLog.log("NOTES", "Gallery picker failed", e)
-                        }
-                    }
-                    PlusRow("\uD83D\uDCCE", stringResource(R.string.cap_file)) {
-                        showPlus = false
-                        try {
-                            filePick.launch("*/*")
-                        } catch (e: Throwable) {
-                            AppLog.log("NOTES", "Picker failed", e)
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showPlus = false }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
+    AddSheet(
+        vm = vm,
+        visible = showPlus,
+        onClose = { showPlus = false },
+        onText = {
+            showPlus = false
+            vm.newNote(1)
+        },
+        onVoice = {
+            showPlus = false
+            vm.newNote(2)
+        },
+        onPhoto = {
+            showPlus = false
+            val f = NoteStore.newMediaFile(ctx, "jpg")
+            pendingCap = f
+            try {
+                photoCap.launch(NoteMedia.uriFor(ctx, f))
+            } catch (e: Throwable) {
+                pendingCap = null
+                toast(R.string.note_no_camera)
+            }
+        },
+        onVideo = {
+            showPlus = false
+            val f = NoteStore.newMediaFile(ctx, "mp4")
+            pendingCap = f
+            try {
+                videoCap.launch(NoteMedia.uriFor(ctx, f))
+            } catch (e: Throwable) {
+                pendingCap = null
+                toast(R.string.note_no_camera)
+            }
+        },
+        onFile = {
+            showPlus = false
+            try {
+                filePick.launch("*/*")
+            } catch (e: Throwable) {
+                AppLog.log("NOTES", "Picker failed", e)
+            }
+        },
+        onSystemPicker = {
+            showPlus = false
+            try {
+                gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+            } catch (e: Throwable) {
+                AppLog.log("NOTES", "Gallery picker failed", e)
+            }
+        },
+    )
     if (manage && currentCol != null) {
         AlertDialog(
             onDismissRequest = { manage = false },
@@ -395,22 +389,6 @@ fun NotesList(vm: MainViewModel) {
             },
             onDismiss = { deleteCol = false },
         )
-    }
-}
-
-@Composable
-private fun PlusRow(icon: String, label: String, onClick: () -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(icon, fontSize = 22.sp, modifier = Modifier.padding(end = 14.dp))
-        Text(label, color = cs.onSurface, fontSize = 16.sp)
     }
 }
 

@@ -699,11 +699,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun importItems(uris: List<Uri>) {
+    fun importItems(uris: List<Uri>, group: Boolean = false) {
         if (uris.isEmpty()) return
         val col = if (noteScope > 0L) noteScope else 0L
         viewModelScope.launch {
-            val list = withContext(Dispatchers.IO) { NoteStore.itemsFromUris(app, uris, col) }
+            val raw = withContext(Dispatchers.IO) { NoteStore.itemsFromUris(app, uris, col) }
+            val g = Store.newId()
+            val list = if (group && raw.size >= 2) raw.map { it.copy(groupId = g) } else raw
             mutateNotes { old -> list.reversed() + old }
         }
     }

@@ -2,7 +2,7 @@
     <string name="app_name">ركّز</string>
     <string name="developer_label">المطوّر</string>
     <string name="language_label">اللغة</string>
-    <string name="lang_system">النظام</string>
+    <string name="lang_system">تلقائي</string>
     <string name="lang_arabic">العربية</string>
     <string name="lang_english">English</string>
     <string name="error_log">سجل الأخطاء</string>
@@ -133,17 +133,17 @@
     <string name="reset_defaults">رجّع المؤقت للافتراضي</string>
     <string name="reset_defaults_confirm">ترجّع المؤقت لـ 25 دقيقة، جلسة واحدة، واستراحات عادية؟</string>
     <string name="backup_title">النسخ الاحتياطي</string>
-    <string name="backup_where">بيتحفظ على موبايلك في: %1$s</string>
-    <string name="backup_include">عاوز تحفظ إيه</string>
-    <string name="backup_basic">المهام والمؤقت والعادات والكورسات</string>
+    <string name="backup_where">المكان: %1$s</string>
+    <string name="backup_include">احفظ إيه؟</string>
+    <string name="backup_basic">المهام والعادات</string>
     <string name="backup_ledger">الحسابات</string>
     <string name="backup_now">اعمل نسخة دلوقتي</string>
     <string name="backup_working">جاري الحفظ…</string>
     <string name="backup_done">اتحفظت النسخة: %1$s</string>
     <string name="backup_failed">النسخة فشلت. بص على سجل الأخطاء في الإعدادات.</string>
     <string name="backup_pick_something">اختار حاجة واحدة على الأقل.</string>
-    <string name="auto_backup">نسخ تلقائي يومي</string>
-    <string name="auto_backup_hint">بيشتغل لما تفتح التطبيق، مرة في اليوم بحد أقصى. بيحتفظ بآخر 7.</string>
+    <string name="auto_backup">نسخ يومي تلقائي</string>
+    <string name="auto_backup_hint">مرة في اليوم عند فتح التطبيق · آخر 7 نسخ</string>
     <string name="restore_button">استرجاع نسخة</string>
     <string name="restore_title">استرجاع نسخة</string>
     <string name="restore_warn">ده هيستبدل البيانات الحالية بالموجود في النسخة. اختار هترجّع إيه:</string>
@@ -303,8 +303,8 @@
     <string name="wn_voice">🎤 صوت</string>
     <string name="wn_photo">📷 صورة</string>
     <string name="wn_video">🎥 فيديو</string>
-    <string name="backup_notes">المفكرة (النصوص)</string>
-    <string name="backup_media">مرفقات المفكرة (صور، صوت، فيديو)</string>
+    <string name="backup_notes">المفكرة</string>
+    <string name="backup_media">صور وصوت وفيديو</string>
     <string name="col_kind_locked">مينفعش تتحول لنص أو حساب طالما عمود تاني أو سطر في الملخص بيستخدمها.</string>
     <string name="viewer_open_with">فتح بتطبيق تاني</string>
     <string name="viewer_edit">تعديل الملاحظة</string>
@@ -339,4 +339,11 @@
     <string name="course_name">اسم الكورس</string>
     <string name="course_total">عدد الدروس</string>
     <string name="course_delete_confirm">تمسح الكورس "%1$s"؟</string>
+    <string name="sheet_perm">اسمح بالوصول للصور والفيديو عشان تظهر هنا</string>
+    <string name="sheet_allow">السماح</string>
+    <string name="sheet_system_picker">معرض النظام</string>
+    <string name="sheet_add">إضافة (%1$s)</string>
+    <string name="sheet_as_group">كمجموعة</string>
+    <string name="sheet_recent">الأحدث</string>
+    <string name="sheet_text">نص</string>
 </resources>

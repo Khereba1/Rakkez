@@ -3,7 +3,7 @@
     <string name="developer_name" translatable="false">Khereba1</string>
     <string name="developer_label">Developer</string>
     <string name="language_label">Language</string>
-    <string name="lang_system">System</string>
+    <string name="lang_system">Auto</string>
     <string name="lang_arabic">العربية</string>
     <string name="lang_english">English</string>
     <string name="error_log">Error log</string>
@@ -134,17 +134,17 @@ Use the + button on the Focus screen to park a distracting thought for now.</str
     <string name="reset_defaults">Reset timer to defaults</string>
     <string name="reset_defaults_confirm">Reset the timer to 25 minutes, single-session mode, and default breaks?</string>
     <string name="backup_title">Backup</string>
-    <string name="backup_where">Saved on your phone in: %1$s</string>
-    <string name="backup_include">What to include</string>
-    <string name="backup_basic">Tasks, timer, habits and courses</string>
-    <string name="backup_ledger">Accounts</string>
+    <string name="backup_where">Saved in: %1$s</string>
+    <string name="backup_include">Include</string>
+    <string name="backup_basic">Tasks and habits</string>
+    <string name="backup_ledger">Ledger</string>
     <string name="backup_now">Back up now</string>
     <string name="backup_working">Working…</string>
     <string name="backup_done">Backup saved: %1$s</string>
     <string name="backup_failed">Backup failed. Check the error log in Settings.</string>
     <string name="backup_pick_something">Pick at least one thing to back up.</string>
-    <string name="auto_backup">Daily automatic backup</string>
-    <string name="auto_backup_hint">Runs when you open the app, at most once a day. Keeps the last 7.</string>
+    <string name="auto_backup">Daily auto backup</string>
+    <string name="auto_backup_hint">Once a day on app open · keeps the last 7</string>
     <string name="restore_button">Restore a backup</string>
     <string name="restore_title">Restore backup</string>
     <string name="restore_warn">This replaces the current data with what is in the backup. Choose what to restore:</string>
@@ -304,8 +304,8 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="wn_voice">🎤 Voice</string>
     <string name="wn_photo">📷 Photo</string>
     <string name="wn_video">🎥 Video</string>
-    <string name="backup_notes">Notes (text)</string>
-    <string name="backup_media">Notes media (photos, audio, video)</string>
+    <string name="backup_notes">Notes</string>
+    <string name="backup_media">Photos, audio, video</string>
     <string name="col_kind_locked">Type can\'t change to text/calculated while another column or a summary line uses this one.</string>
     <string name="viewer_open_with">Open with another app</string>
     <string name="viewer_edit">Edit note</string>
@@ -340,4 +340,11 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="course_name">Course name</string>
     <string name="course_total">Number of lessons</string>
     <string name="course_delete_confirm">Delete the course "%1$s"?</string>
+    <string name="sheet_perm">Allow access to photos and videos to show them here</string>
+    <string name="sheet_allow">Allow</string>
+    <string name="sheet_system_picker">System gallery</string>
+    <string name="sheet_add">Add (%1$s)</string>
+    <string name="sheet_as_group">As a group</string>
+    <string name="sheet_recent">Recent</string>
+    <string name="sheet_text">Text</string>
 </resources>
