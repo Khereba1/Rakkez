@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -15,7 +16,7 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /** What a backup file contains (read from its manifest). */
-data class BackupInfo(val basic: Boolean, val ledger: Boolean, val createdAt: Long)
+data class BackupInfo(val basic: Boolean, val ledger: Boolean, val notes: Boolean, val media: Boolean, val createdAt: Long)
 
 /**
  * Manual (and optional automatic-on-open) backups.
@@ -26,6 +27,8 @@ object Backup {
     const val DIR = "Download/Rakkez/backups"
     private const val BASIC_FILE = "basic.json"
     private const val LEDGER_FILE = "ledger.json"
+    private const val NOTES_FILE = "notes.json"
+    private const val MEDIA_PREFIX = "media/"
     private const val MANIFEST = "manifest.json"
     private val EXCLUDED_KEYS = setOf("timer", "last_auto")
 
@@ -34,6 +37,10 @@ object Backup {
     fun basicSize(c: Context): Long = basicJson(c).toString().toByteArray(Charsets.UTF_8).size.toLong()
 
     fun ledgerSize(c: Context): Long = LedgerStore.fileSize(c)
+
+    fun notesSize(c: Context): Long = NoteStore.notesSize(c)
+
+    fun mediaSize(c: Context): Long = NoteStore.mediaSize(c)
 
     fun fmtSize(bytes: Long): String {
         return if (bytes >= 1024L * 1024L) {
@@ -65,7 +72,7 @@ object Backup {
     }
 
     /** Returns the display name of the file that was written. Throws on failure. */
-    fun create(c: Context, basic: Boolean, ledger: Boolean, auto: Boolean): String {
+    fun create(c: Context, basic: Boolean, ledger: Boolean, notesOn: Boolean, mediaOn: Boolean, auto: Boolean): String {
         val stamp = SimpleDateFormat("yyyy-MM-dd_HHmm", Locale.US).format(Date())
         val name = (if (auto) "rakkez-auto-" else "rakkez-backup-") + stamp + ".zip"
         val values = ContentValues()
@@ -85,11 +92,30 @@ object Backup {
                 manifest.put("createdAt", System.currentTimeMillis())
                 manifest.put("basic", basic)
                 manifest.put("ledger", ledger)
+                manifest.put("notes", notesOn)
+                manifest.put("media", mediaOn)
                 putEntry(zip, MANIFEST, manifest.toString().toByteArray(Charsets.UTF_8))
                 if (basic) putEntry(zip, BASIC_FILE, basicJson(c).toString().toByteArray(Charsets.UTF_8))
                 if (ledger) {
                     val f = File(c.filesDir, "ledger.json")
                     if (f.exists()) putEntry(zip, LEDGER_FILE, f.readBytes())
+                }
+                if (notesOn) {
+                    val f = File(c.filesDir, "notes.json")
+                    if (f.exists()) putEntry(zip, NOTES_FILE, f.readBytes())
+                }
+                if (mediaOn) {
+                    // photos, audio and video are already compressed: store them without extra compression
+                    zip.setLevel(0)
+                    val files = NoteStore.mediaDir(c).listFiles()
+                    if (files != null) {
+                        for (mf in files) {
+                            if (!mf.isFile) continue
+                            zip.putNextEntry(ZipEntry(MEDIA_PREFIX + mf.name))
+                            mf.inputStream().use { ins -> ins.copyTo(zip) }
+                            zip.closeEntry()
+                        }
+                    }
                 }
             }
             val done = ContentValues()
@@ -124,7 +150,7 @@ object Backup {
                     if (entry.name == MANIFEST) {
                         val o = JSONObject(String(zip.readBytes(), Charsets.UTF_8))
                         if (o.optString("app") == "rakkez") {
-                            info = BackupInfo(o.optBoolean("basic", false), o.optBoolean("ledger", false), o.optLong("createdAt", 0L))
+                            info = BackupInfo(o.optBoolean("basic", false), o.optBoolean("ledger", false), o.optBoolean("notes", false), o.optBoolean("media", false), o.optLong("createdAt", 0L))
                         }
                     }
                     entry = zip.nextEntry
@@ -138,17 +164,39 @@ object Backup {
     }
 
     /** Replaces the chosen parts with what is inside the backup. Returns true on success. */
-    fun restore(c: Context, uri: Uri, basic: Boolean, ledger: Boolean): Boolean {
+    fun restore(c: Context, uri: Uri, basic: Boolean, ledger: Boolean, notesOn: Boolean, mediaOn: Boolean): Boolean {
         return try {
             var basicText: String? = null
             var ledgerBytes: ByteArray? = null
+            var notesBytes: ByteArray? = null
             val input = c.contentResolver.openInputStream(uri) ?: return false
             ZipInputStream(input).use { zip ->
                 var entry = zip.nextEntry
                 while (entry != null) {
-                    if (entry.name == BASIC_FILE) basicText = String(zip.readBytes(), Charsets.UTF_8)
-                    if (entry.name == LEDGER_FILE) ledgerBytes = zip.readBytes()
+                    val en = entry.name
+                    if (en == BASIC_FILE) basicText = String(zip.readBytes(), Charsets.UTF_8)
+                    if (en == LEDGER_FILE) ledgerBytes = zip.readBytes()
+                    if (en == NOTES_FILE) notesBytes = zip.readBytes()
+                    if (mediaOn && en.startsWith(MEDIA_PREFIX) && !entry.isDirectory) {
+                        val safe = File(en).name
+                        if (safe.isNotEmpty()) {
+                            val dst = File(NoteStore.mediaDir(c), safe)
+                            FileOutputStream(dst).use { out -> zip.copyTo(out) }
+                        }
+                    }
                     entry = zip.nextEntry
+                }
+            }
+            if (notesOn) {
+                val nb = notesBytes
+                if (nb != null) {
+                    val tmp = File(c.filesDir, "notes.json.restore")
+                    tmp.writeBytes(nb)
+                    val dst = File(c.filesDir, "notes.json")
+                    if (!tmp.renameTo(dst)) {
+                        dst.writeBytes(nb)
+                        tmp.delete()
+                    }
                 }
             }
             if (ledger) {
@@ -202,7 +250,7 @@ object Backup {
             val last = p.getLong("last_auto", 0L)
             val now = System.currentTimeMillis()
             if (now - last < 24L * 60L * 60L * 1000L) return
-            create(c, true, true, true)
+            create(c, true, true, true, false, true)
             p.edit().putLong("last_auto", now).commit()
             pruneAuto(c, 7)
         } catch (e: Throwable) {

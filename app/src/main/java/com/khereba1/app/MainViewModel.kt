@@ -62,6 +62,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var restoreInfo by mutableStateOf<BackupInfo?>(null)
         private set
 
+    var notes by mutableStateOf(NotesData(emptyList(), emptyList()))
+        private set
+    var noteQuery by mutableStateOf("")
+        private set
+    var noteType by mutableStateOf(NF_ALL)
+        private set
+    var noteScope by mutableStateOf(-1L)
+        private set
+    var editing by mutableStateOf<Note?>(null)
+        private set
+    var noteAction by mutableStateOf(0)
+        private set
+    private var editingNew = false
+    private val sessionAdded = HashSet<Long>()
+    private val removedOld = ArrayList<Media>()
+
     private var ticker: Job? = null
 
     init {
@@ -70,6 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (t0.phase == PH_IDLE && t0.taskId != 0L) Engine.selectTask(app, 0L)
         refreshAll(false)
         ledgers = LedgerStore.load(app)
+        notes = NoteStore.load(app)
         viewModelScope.launch(Dispatchers.IO) { Backup.autoIfDue(app) }
     }
 
@@ -117,6 +134,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ---------------- navigation ----------------
 
     fun openTab(index: Int) {
+        if (editing != null) closeNote()
         tab = index
         overlay = OVERLAY_NONE
     }
@@ -547,11 +565,193 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ---------------- notes ----------------
+
+    fun reloadNotes() {
+        notes = NoteStore.load(app)
+    }
+
+    fun searchNotes(q: String) {
+        noteQuery = q
+    }
+
+    fun filterNotes(t: Int) {
+        noteType = t
+    }
+
+    fun scopeNotes(sc: Long) {
+        noteScope = sc
+    }
+
+    fun visibleNotes(): List<Note> {
+        val scope = noteScope
+        val list = notes.notes.filter { n ->
+            val inScope = when {
+                scope == -2L -> n.archived
+                n.archived -> false
+                scope == -1L -> true
+                else -> n.collectionId == scope
+            }
+            inScope && NoteTools.matches(n, noteType) && NoteTools.searchMatch(n, noteQuery)
+        }
+        return list.sortedWith(compareByDescending<Note> { it.pinned }.thenByDescending { it.updatedAt })
+    }
+
+    /** action: 0 nothing, 1 text, 2 voice, 3 photo, 4 video (used by the quick-capture widget). */
+    fun newNote(action: Int) {
+        if (editing != null) closeNote()
+        sessionAdded.clear()
+        removedOld.clear()
+        val now = System.currentTimeMillis()
+        val col = if (noteScope > 0L) noteScope else 0L
+        editing = Note(Store.newId(), "", "", now, now, false, false, col, emptyList())
+        editingNew = true
+        noteAction = action
+        tab = 3
+        overlay = OVERLAY_NONE
+    }
+
+    fun consumeNoteAction() {
+        noteAction = 0
+    }
+
+    fun openNote(n: Note) {
+        sessionAdded.clear()
+        removedOld.clear()
+        editing = n
+        editingNew = false
+        noteAction = 0
+    }
+
+    fun editDraftText(title: String, body: String) {
+        val e = editing ?: return
+        editing = e.copy(title = title, body = body)
+    }
+
+    fun editDraftMeta(pinned: Boolean, archived: Boolean, col: Long) {
+        val e = editing ?: return
+        editing = e.copy(pinned = pinned, archived = archived, collectionId = col)
+    }
+
+    fun addDraftMedia(m: Media) {
+        val e = editing ?: return
+        sessionAdded.add(m.id)
+        editing = e.copy(media = e.media + m)
+    }
+
+    fun removeDraftMedia(id: Long) {
+        val e = editing ?: return
+        val m = e.media.firstOrNull { it.id == id } ?: return
+        if (sessionAdded.contains(id)) {
+            NoteStore.deleteFiles(app, listOf(m))
+            sessionAdded.remove(id)
+        } else {
+            removedOld.add(m)
+        }
+        editing = e.copy(media = e.media.filter { it.id != id })
+    }
+
+    fun addCapture(f: java.io.File, kind: Int, mime: String) {
+        viewModelScope.launch {
+            val dur = if (kind == MK_VIDEO) withContext(Dispatchers.IO) { NoteMedia.durationOf(f) } else 0L
+            addDraftMedia(Media(Store.newId(), f.name, kind, mime, "", dur))
+        }
+    }
+
+    fun attachUris(list: List<Uri>) {
+        viewModelScope.launch {
+            val ms = withContext(Dispatchers.IO) { list.mapNotNull { u -> NoteStore.copyIn(app, u) } }
+            for (m in ms) addDraftMedia(m)
+        }
+    }
+
+    private fun persistDraft(n: Note) {
+        val saved = n.copy(updatedAt = System.currentTimeMillis())
+        notes = NoteStore.update(app) { d ->
+            if (d.notes.any { it.id == saved.id }) {
+                NotesData(d.notes.map { x -> if (x.id == saved.id) saved else x }, d.collections)
+            } else {
+                NotesData(listOf(saved) + d.notes, d.collections)
+            }
+        }
+    }
+
+    /** Keeps what was typed if the app is sent to the background (or killed) while a note is open. */
+    fun saveDraftSilently() {
+        val e = editing ?: return
+        if (NoteTools.isBlank(e)) return
+        persistDraft(e)
+        editingNew = false
+    }
+
+    fun closeNote() {
+        val e = editing ?: return
+        if (NoteTools.isBlank(e)) {
+            if (!editingNew) removeNoteData(e.id)
+        } else {
+            persistDraft(e)
+        }
+        NoteStore.deleteFiles(app, removedOld)
+        removedOld.clear()
+        sessionAdded.clear()
+        editing = null
+        editingNew = false
+        noteAction = 0
+    }
+
+    private fun removeNoteData(id: Long) {
+        notes = NoteStore.update(app) { d -> NotesData(d.notes.filter { it.id != id }, d.collections) }
+    }
+
+    fun deleteNote(id: Long) {
+        val stored = notes.notes.firstOrNull { it.id == id }
+        if (stored != null) NoteStore.deleteFiles(app, stored.media)
+        val e = editing
+        if (e != null && e.id == id) {
+            NoteStore.deleteFiles(app, e.media)
+            NoteStore.deleteFiles(app, removedOld)
+            removedOld.clear()
+            sessionAdded.clear()
+            editing = null
+            editingNew = false
+            noteAction = 0
+        }
+        removeNoteData(id)
+    }
+
+    fun addCollection(name: String) {
+        val n = name.trim().take(30)
+        if (n.isEmpty()) return
+        val id = Store.newId()
+        notes = NoteStore.update(app) { d -> NotesData(d.notes, d.collections + NoteCollection(id, n)) }
+        noteScope = id
+    }
+
+    fun renameCollection(id: Long, name: String) {
+        val n = name.trim().take(30)
+        if (n.isEmpty()) return
+        notes = NoteStore.update(app) { d ->
+            NotesData(d.notes, d.collections.map { c -> if (c.id == id) c.copy(name = n) else c })
+        }
+    }
+
+    fun deleteCollection(id: Long) {
+        notes = NoteStore.update(app) { d ->
+            NotesData(
+                d.notes.map { x -> if (x.collectionId == id) x.copy(collectionId = 0L) else x },
+                d.collections.filter { it.id != id },
+            )
+        }
+        val e = editing
+        if (e != null && e.collectionId == id) editing = e.copy(collectionId = 0L)
+        if (noteScope == id) noteScope = -1L
+    }
+
     // ---------------- backup / restore ----------------
 
-    fun runBackup(basic: Boolean, ledger: Boolean) {
+    fun runBackup(basic: Boolean, ledger: Boolean, notesOn: Boolean, mediaOn: Boolean) {
         if (backupBusy) return
-        if (!basic && !ledger) {
+        if (!basic && !ledger && !notesOn && !mediaOn) {
             backupMsg = LocaleHelper.wrap(app).getString(R.string.backup_pick_something)
             return
         }
@@ -560,7 +760,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val msg = withContext(Dispatchers.IO) {
                 try {
-                    val name = Backup.create(app, basic, ledger, false)
+                    val name = Backup.create(app, basic, ledger, notesOn, mediaOn, false)
                     LocaleHelper.wrap(app).getString(R.string.backup_done, name)
                 } catch (e: Throwable) {
                     AppLog.log("BACKUP", "Backup failed", e)
@@ -589,14 +789,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         restoreInfo = null
     }
 
-    fun confirmRestore(basic: Boolean, ledger: Boolean) {
+    fun confirmRestore(basic: Boolean, ledger: Boolean, notesOn: Boolean, mediaOn: Boolean) {
         val uri = restoreUri ?: return
         restoreUri = null
         restoreInfo = null
         viewModelScope.launch {
-            val ok = withContext(Dispatchers.IO) { Backup.restore(app, uri, basic, ledger) }
+            val ok = withContext(Dispatchers.IO) { Backup.restore(app, uri, basic, ledger, notesOn, mediaOn) }
             refreshAll(true)
             ledgers = LedgerStore.load(app)
+            notes = NoteStore.load(app)
+            editing = null
             closeLedgerView()
             backupMsg = LocaleHelper.wrap(app).getString(if (ok) R.string.restore_done else R.string.restore_failed)
         }

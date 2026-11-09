@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleIntent(intent)
+        if (savedInstanceState == null) handleIntent(intent)
         setContent {
             RakkezTheme {
                 AppRoot(
@@ -81,12 +81,14 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         Foreground.on = true
         Alerts.cancel(this)
+        vm.reloadNotes()
         vm.startTicking()
     }
 
     override fun onStop() {
         Foreground.on = false
         vm.stopTicking()
+        vm.saveDraftSilently()
         super.onStop()
     }
 
@@ -95,6 +97,11 @@ class MainActivity : ComponentActivity() {
         val tab = i.getIntExtra("tab", -1)
         if (tab == 0 || tab == 1) vm.openTab(tab)
         if (tab == 2) vm.openOverlay(OVERLAY_TODAY)
+        val note = i.getIntExtra("note", -1)
+        if (note >= 0) {
+            vm.openTab(3)
+            if (note >= 1) vm.newNote(note)
+        }
         if (i.getBooleanExtra("add", false)) {
             vm.openTab(0)
             vm.requestPlus(PLUS_TASK)
@@ -119,9 +126,10 @@ class MainActivity : ComponentActivity() {
 fun AppRoot(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (String) -> Unit, onBeforeStart: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val inLedgerDetail = vm.tab == 4 && vm.openLedgerId != 0L
+    BackHandler(enabled = vm.overlay == OVERLAY_NONE && vm.editing != null) { vm.closeNote() }
     BackHandler(enabled = vm.overlay != OVERLAY_NONE) { vm.closeOverlay() }
     BackHandler(enabled = vm.overlay == OVERLAY_NONE && inLedgerDetail) { vm.closeLedgerView() }
-    BackHandler(enabled = vm.overlay == OVERLAY_NONE && !inLedgerDetail && vm.tab != 0) { vm.openTab(0) }
+    BackHandler(enabled = vm.overlay == OVERLAY_NONE && vm.editing == null && !inLedgerDetail && vm.tab != 0) { vm.openTab(0) }
     Surface(modifier = Modifier.fillMaxSize(), color = cs.background) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
@@ -133,7 +141,7 @@ fun AppRoot(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (String) ->
                     when (vm.tab) {
                         0 -> TasksScreen(vm = vm, onPlay = { id -> vm.playTask(id) })
                         1 -> FocusScreen(vm = vm, onBeforeStart = onBeforeStart)
-                        3 -> NotesPlaceholder(vm)
+                        3 -> NotesRoot(vm)
                         else -> LedgerRoot(vm)
                     }
                 }
@@ -149,7 +157,7 @@ fun AppRoot(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (String) ->
                         else -> PLUS_LEDGER
                     }
                     if (vm.overlay != OVERLAY_NONE) vm.closeOverlay()
-                    vm.requestPlus(code)
+                    if (!(vm.tab == 3 && vm.editing != null)) vm.requestPlus(code)
                 },
             )
         }

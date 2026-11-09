@@ -46,6 +46,8 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
     var logText by remember { mutableStateOf("") }
     var bkBasic by remember { mutableStateOf(true) }
     var bkLedger by remember { mutableStateOf(true) }
+    var bkNotes by remember { mutableStateOf(true) }
+    var bkMedia by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
     val version = remember {
         try {
@@ -56,6 +58,8 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
     }
     val basicSize = remember(vm.backupMsg) { Backup.fmtSize(Backup.basicSize(ctx)) }
     val ledgerSize = remember(vm.backupMsg, vm.ledgers) { Backup.fmtSize(Backup.ledgerSize(ctx)) }
+    val notesSize = remember(vm.backupMsg, vm.notes) { Backup.fmtSize(Backup.notesSize(ctx)) }
+    val mediaSize = remember(vm.backupMsg, vm.notes) { Backup.fmtSize(Backup.mediaSize(ctx)) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.prepareRestore(uri)
@@ -133,9 +137,11 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
                 Text(stringResource(R.string.backup_include), color = cs.onSurfaceVariant, fontSize = 13.sp)
                 CheckRow(stringResource(R.string.backup_basic), basicSize, bkBasic) { bkBasic = !bkBasic }
                 CheckRow(stringResource(R.string.backup_ledger), ledgerSize, bkLedger) { bkLedger = !bkLedger }
+                CheckRow(stringResource(R.string.backup_notes), notesSize, bkNotes) { bkNotes = !bkNotes }
+                CheckRow(stringResource(R.string.backup_media), mediaSize, bkMedia) { bkMedia = !bkMedia }
                 Spacer(Modifier.height(8.dp))
                 Button(
-                    onClick = { vm.runBackup(bkBasic, bkLedger) },
+                    onClick = { vm.runBackup(bkBasic, bkLedger, bkNotes, bkMedia) },
                     enabled = !vm.backupBusy,
                     colors = ButtonDefaults.buttonColors(containerColor = cs.primary, contentColor = cs.onPrimary),
                     modifier = Modifier.fillMaxWidth().height(46.dp),
@@ -222,6 +228,8 @@ fun RestoreDialog(vm: MainViewModel) {
     val cs = MaterialTheme.colorScheme
     var useBasic by remember(info) { mutableStateOf(info.basic) }
     var useLedger by remember(info) { mutableStateOf(info.ledger) }
+    var useNotes by remember(info) { mutableStateOf(info.notes) }
+    var useMedia by remember(info) { mutableStateOf(info.media) }
     AlertDialog(
         onDismissRequest = { vm.cancelRestore() },
         title = { Text(stringResource(R.string.restore_title)) },
@@ -230,12 +238,14 @@ fun RestoreDialog(vm: MainViewModel) {
                 Text(stringResource(R.string.restore_warn), color = cs.onSurface, fontSize = 14.sp, lineHeight = 21.sp)
                 if (info.basic) CheckRow(stringResource(R.string.backup_basic), "", useBasic) { useBasic = !useBasic }
                 if (info.ledger) CheckRow(stringResource(R.string.backup_ledger), "", useLedger) { useLedger = !useLedger }
+                if (info.notes) CheckRow(stringResource(R.string.backup_notes), "", useNotes) { useNotes = !useNotes }
+                if (info.media) CheckRow(stringResource(R.string.backup_media), "", useMedia) { useMedia = !useMedia }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { vm.confirmRestore(useBasic && info.basic, useLedger && info.ledger) },
-                enabled = (useBasic && info.basic) || (useLedger && info.ledger),
+                onClick = { vm.confirmRestore(useBasic && info.basic, useLedger && info.ledger, useNotes && info.notes, useMedia && info.media) },
+                enabled = (useBasic && info.basic) || (useLedger && info.ledger) || (useNotes && info.notes) || (useMedia && info.media),
             ) { Text(stringResource(R.string.restore_confirm), color = cs.error) }
         },
         dismissButton = { TextButton(onClick = { vm.cancelRestore() }) { Text(stringResource(R.string.cancel)) } },

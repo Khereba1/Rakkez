@@ -32,7 +32,9 @@ You cannot compile: be careful and conservative. A mistake shows up only as a fa
 - TasksScreen.kt / FocusScreen.kt: tabs 'المهام' and 'تركيز' (AskDialog, presets 15/25/45 and hold-to-repeat stepper live in FocusScreen.kt)
 - TodayScreen.kt / SettingsScreen.kt: overlays opened from the Focus footer / the gear button (SettingsScreen.kt also has RestoreDialog and the backup UI)
 - LedgerModel.kt / LedgerScreens.kt: generic 'حسابات' feature (ledgers -> tables/columns, summary lines, batches with settle/close, copy-as-text); data in files/ledger.json
-- Backup.kt: selective backup zip to Download/Rakkez/backups via MediaStore, restore via file picker, optional daily auto backup on app open
+- NotesModel.kt / NotesMedia.kt / NotesScreen.kt: 'مفكرة' (notes): notes.json + files/media; Inbox + collections + automatic type filters (text/links/photos/audio/video) + search + pin/archive; photo/video through the phone camera app (FileProvider, no CAMERA permission), voice via MediaRecorder (RECORD_AUDIO asked at runtime)
+- ShareReceiver.kt: share target (saves to Inbox without opening the app); NotesWidget.kt: quick-capture home widget (text / voice / photo / video, opens MainActivity with extra "note")
+- Backup.kt (now also notes text and notes media, chosen separately): selective backup zip to Download/Rakkez/backups via MediaStore, restore via file picker, optional daily auto backup on app open
 - Navigation: bottom bar tasks | focus | center + (context-aware, MainViewModel.plusRequest) | notes (placeholder until the notes phase) | accounts
 - res/layout/widget_*.xml, res/xml/widget_*_info.xml, res/drawable (icon, widget shapes), values + values-ar strings (every string exists in both)
 
