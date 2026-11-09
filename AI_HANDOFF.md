@@ -61,3 +61,8 @@ You cannot compile: be careful and conservative. A mistake shows up only as a fa
 The stable signing key lives in GitHub Secrets (KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD).
 Never print, commit or ask for them, and never ask for the backup folder.
 `bash share_zip.sh` builds a clean `<folder>-for-AI.zip` (no keys, env files, build output or APKs) for sharing.
+
+## fix8 (v9 / 1.8) additions
+- Ledger: single `ColumnDialog` (add + edit; kind change, default, sum, A×B refs); `vm.editColumn(..., kind, sumIt, refA, refB, def)`. Kind can't become text/calc while referenced.
+- Notes: text wins classification; media-only notes are standalone items (filters Photos/Audio/Video/Files). `Note.groupId` ("grp") groups items; long-press = selection (group/ungroup/move/delete). Share target makes one item per file. `NoteViewer.kt` = in-app pager viewer (image double-tap zoom, VideoView, audio, ⋮ open-with/share/ungroup). Center "+" on Notes opens an add menu (text/voice/photo/video/system photo picker/file).
+- Tasks tab has sub-tabs Tasks | Habits | Courses (`Trackers.kt`, `TrackersScreen.kt`, prefs "habits"/"courses", in basic backup). Settings: theme (prefs "theme": system/light/dark).

@@ -65,8 +65,15 @@ private val LightScheme = lightColorScheme(
 fun RakkezTheme(content: @Composable () -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val ff = remember { appFontFamily(ctx) }
+    val mode = remember { themeKey(ctx) }
+    val sysDark = isSystemInDarkTheme()
+    val dark = when (mode) {
+        "dark" -> true
+        "light" -> false
+        else -> sysDark
+    }
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkScheme else LightScheme,
+        colorScheme = if (dark) DarkScheme else LightScheme,
         typography = typographyFor(ff),
         content = content,
     )
@@ -90,6 +97,9 @@ val PlexFamily = FontFamily(
 
 /** "cairo" (default), "plex" or "system" (the phone's own font). */
 fun fontKey(c: Context): String = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("font", "cairo") ?: "cairo"
+
+/** "system" (follows the phone), "light" or "dark". */
+fun themeKey(c: Context): String = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("theme", "system") ?: "system"
 
 fun appFontFamily(c: Context): FontFamily? = when (fontKey(c)) {
     "plex" -> PlexFamily

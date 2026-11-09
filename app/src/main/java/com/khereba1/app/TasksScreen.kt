@@ -49,6 +49,29 @@ import java.util.Date
 
 @Composable
 fun TasksScreen(vm: MainViewModel, onPlay: (Long) -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            SegPill(stringResource(R.string.tab_tasks), vm.tasksSub == 0, { vm.openTasksSub(0) })
+            SegPill(stringResource(R.string.sub_habits), vm.tasksSub == 1, { vm.openTasksSub(1) })
+            SegPill(stringResource(R.string.sub_courses), vm.tasksSub == 2, { vm.openTasksSub(2) })
+        }
+        Box(Modifier.weight(1f)) {
+            when (vm.tasksSub) {
+                1 -> HabitsPane(vm)
+                2 -> CoursesPane(vm)
+                else -> TasksPane(vm, onPlay)
+            }
+        }
+    }
+}
+
+@Composable
+fun TasksPane(vm: MainViewModel, onPlay: (Long) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var draft by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<Task?>(null) }

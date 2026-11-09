@@ -1010,10 +1010,12 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
     }
     val ac = addColumnTo
     if (ac != null) {
-        AddColumnDialog(
+        ColumnDialog(
+            ledger = l,
             table = ac,
+            existing = null,
             onDismiss = { addColumnTo = null },
-            onAdd = { n, kind, sumIt, a, b, d ->
+            onSave = { n, kind, sumIt, a, b, d ->
                 vm.addColumn(l.id, ac.id, n, kind, sumIt, a, b, d)
                 addColumnTo = null
             },
@@ -1031,11 +1033,13 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
     }
     val ec = editColumnOf
     if (ec != null) {
-        EditColumnDialog(
-            col = ec.second,
+        ColumnDialog(
+            ledger = l,
+            table = ec.first,
+            existing = ec.second,
             onDismiss = { editColumnOf = null },
-            onSave = { n, d, sm ->
-                vm.editColumn(l.id, ec.first.id, ec.second.id, n, d, sm)
+            onSave = { n, kind, sm, a, b, d ->
+                vm.editColumn(l.id, ec.first.id, ec.second.id, n, kind, sm, a, b, d)
                 editColumnOf = null
             },
         )
@@ -1072,82 +1076,6 @@ fun LedgerSetup(vm: MainViewModel, l: Ledger, onBack: () -> Unit) {
             onDismiss = { confirmDeleteTable = null },
         )
     }
-}
-
-@Composable
-fun AddColumnDialog(table: TableDef, onDismiss: () -> Unit, onAdd: (String, Int, Boolean, Long, Long, String) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    var name by remember { mutableStateOf("") }
-    var kind by remember { mutableStateOf(COL_TEXT) }
-    var sumIt by remember { mutableStateOf(true) }
-    var refA by remember { mutableStateOf(0L) }
-    var refB by remember { mutableStateOf(0L) }
-    var defVal by remember { mutableStateOf("") }
-    val numeric = table.columns.filter { it.kind == COL_NUMBER || it.kind == COL_MONEY }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.add_column)) },
-        text = {
-            Column(
-                Modifier
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.column_name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SegPill(stringResource(R.string.kind_text), kind == COL_TEXT, { kind = COL_TEXT })
-                    SegPill(stringResource(R.string.kind_number), kind == COL_NUMBER, { kind = COL_NUMBER })
-                    SegPill(stringResource(R.string.kind_money), kind == COL_MONEY, { kind = COL_MONEY })
-                    SegPill(stringResource(R.string.kind_calc), kind == COL_CALC, { kind = COL_CALC })
-                }
-                if (kind == COL_CALC) {
-                    Text(stringResource(R.string.calc_hint), color = cs.onSurfaceVariant, fontSize = 13.sp)
-                    if (numeric.size < 2) {
-                        Text(stringResource(R.string.calc_need_two), color = cs.error, fontSize = 13.sp)
-                    } else {
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for (c in numeric) Pill(c.name, refA == c.id, { refA = c.id })
-                        }
-                        Text("×", color = cs.onSurfaceVariant, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for (c in numeric) Pill(c.name, refB == c.id, { refB = c.id })
-                        }
-                    }
-                }
-                if (kind != COL_CALC) {
-                    OutlinedTextField(
-                        value = defVal,
-                        onValueChange = { defVal = it },
-                        label = { Text(stringResource(R.string.col_default)) },
-                        singleLine = true,
-                        keyboardOptions = if (kind == COL_TEXT) KeyboardOptions.Default else KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(stringResource(R.string.col_default_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
-                }
-                if (kind != COL_TEXT) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.column_sum), color = cs.onSurface, modifier = Modifier.weight(1f), fontSize = 14.sp)
-                        Switch(checked = sumIt, onCheckedChange = { v -> sumIt = v })
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onAdd(name, kind, kind != COL_TEXT && sumIt, refA, refB, defVal) },
-                enabled = name.isNotBlank() && (kind != COL_CALC || (refA != 0L && refB != 0L)),
-            ) { Text(stringResource(R.string.add)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
 }
 
 @Composable
@@ -1219,48 +1147,6 @@ fun AddLineDialog(ledger: Ledger, onDismiss: () -> Unit, onAdd: (String, Long, L
 }
 
 @Composable
-fun EditColumnDialog(col: ColumnDef, onDismiss: () -> Unit, onSave: (String, String, Boolean) -> Unit) {
-    val cs = MaterialTheme.colorScheme
-    var name by remember { mutableStateOf(col.name) }
-    var def by remember { mutableStateOf(col.def) }
-    var sumIt by remember { mutableStateOf(col.sumIt) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.col_edit)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.column_name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (col.kind != COL_CALC) {
-                    OutlinedTextField(
-                        value = def,
-                        onValueChange = { def = it },
-                        label = { Text(stringResource(R.string.col_default)) },
-                        singleLine = true,
-                        keyboardOptions = if (col.kind == COL_TEXT) KeyboardOptions.Default else KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(stringResource(R.string.col_default_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
-                }
-                if (col.kind != COL_TEXT) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.column_sum), color = cs.onSurface, modifier = Modifier.weight(1f), fontSize = 14.sp)
-                        Switch(checked = sumIt, onCheckedChange = { v -> sumIt = v })
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = { onSave(name, def, sumIt) }, enabled = name.isNotBlank()) { Text(stringResource(R.string.save)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
-@Composable
 fun EditLineDialog(line: SummaryLine, onDismiss: () -> Unit, onSave: (String, Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
     var name by remember { mutableStateOf(line.label) }
@@ -1300,4 +1186,94 @@ fun MiniBtn(glyph: String, onClick: () -> Unit) {
     ) {
         Text(glyph, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp)
     }
+}
+
+@Composable
+fun ColumnDialog(
+    ledger: Ledger,
+    table: TableDef,
+    existing: ColumnDef?,
+    onDismiss: () -> Unit,
+    onSave: (String, Int, Boolean, Long, Long, String) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    var name by remember { mutableStateOf(existing?.name ?: "") }
+    var kind by remember { mutableStateOf(existing?.kind ?: COL_TEXT) }
+    var sumIt by remember { mutableStateOf(existing?.sumIt ?: true) }
+    var refA by remember { mutableStateOf(existing?.refA ?: 0L) }
+    var refB by remember { mutableStateOf(existing?.refB ?: 0L) }
+    var defVal by remember { mutableStateOf(existing?.def ?: "") }
+    val selfId = existing?.id ?: 0L
+    val numeric = table.columns.filter { (it.kind == COL_NUMBER || it.kind == COL_MONEY) && it.id != selfId }
+    val used = existing != null && (
+        table.columns.any { it.kind == COL_CALC && (it.refA == selfId || it.refB == selfId) } ||
+            ledger.lines.any { it.colId == selfId }
+        )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (existing == null) R.string.add_column else R.string.col_edit)) },
+        text = {
+            Column(
+                Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.column_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.kind_text), kind == COL_TEXT, { if (!used) kind = COL_TEXT })
+                    SegPill(stringResource(R.string.kind_number), kind == COL_NUMBER, { kind = COL_NUMBER })
+                    SegPill(stringResource(R.string.kind_money), kind == COL_MONEY, { kind = COL_MONEY })
+                    SegPill(stringResource(R.string.kind_calc), kind == COL_CALC, { if (!used) kind = COL_CALC })
+                }
+                if (used) {
+                    Text(stringResource(R.string.col_kind_locked), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
+                }
+                if (kind == COL_CALC) {
+                    Text(stringResource(R.string.calc_hint), color = cs.onSurfaceVariant, fontSize = 13.sp)
+                    if (numeric.size < 2) {
+                        Text(stringResource(R.string.calc_need_two), color = cs.error, fontSize = 13.sp)
+                    } else {
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (c in numeric) Pill(c.name, refA == c.id, { refA = c.id })
+                        }
+                        Text("\u00D7", color = cs.onSurfaceVariant, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (c in numeric) Pill(c.name, refB == c.id, { refB = c.id })
+                        }
+                    }
+                }
+                if (kind != COL_CALC) {
+                    OutlinedTextField(
+                        value = defVal,
+                        onValueChange = { defVal = it },
+                        label = { Text(stringResource(R.string.col_default)) },
+                        singleLine = true,
+                        keyboardOptions = if (kind == COL_TEXT) KeyboardOptions.Default else KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(stringResource(R.string.col_default_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
+                }
+                if (kind != COL_TEXT) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.column_sum), color = cs.onSurface, modifier = Modifier.weight(1f), fontSize = 14.sp)
+                        Switch(checked = sumIt, onCheckedChange = { v -> sumIt = v })
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(name, kind, kind != COL_TEXT && sumIt, refA, refB, defVal) },
+                enabled = name.isNotBlank() && (kind != COL_CALC || (refA != 0L && refB != 0L && refA != refB)),
+            ) { Text(stringResource(if (existing == null) R.string.add else R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }

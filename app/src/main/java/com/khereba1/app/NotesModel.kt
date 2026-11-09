@@ -23,6 +23,7 @@ const val NF_LINK = 1
 const val NF_IMAGE = 2
 const val NF_AUDIO = 3
 const val NF_VIDEO = 4
+const val NF_FILE = 5
 
 /** An attachment. [file] is a file name inside files/media. */
 data class Media(
@@ -45,7 +46,13 @@ data class Note(
     val archived: Boolean,
     val collectionId: Long,
     val media: List<Media>,
+    val groupId: Long = 0L,
 )
+
+/** One page of the in-app viewer: an attachment, or the text of a note (media == null). */
+data class VPage(val noteId: Long, val media: Media?, val title: String, val text: String)
+
+data class ViewerState(val pages: List<VPage>, val start: Int, val grouped: List<Long>)
 
 data class NoteCollection(val id: Long, val name: String)
 
@@ -66,16 +73,30 @@ object NoteTools {
 
     fun isBlank(n: Note): Boolean = n.title.isBlank() && n.body.isBlank() && n.media.isEmpty()
 
-    /** Automatic classification by what the note contains. */
+    fun hasText(n: Note): Boolean = n.title.isNotBlank() || n.body.isNotBlank()
+
+    /**
+     * Automatic classification: a note that has text is text (or a link) whatever media is inside it;
+     * a note with only media is a standalone item classified by the kind of its media.
+     */
     fun matches(n: Note, f: Int): Boolean {
+        val text = hasText(n)
         return when (f) {
-            NF_TEXT -> n.media.isEmpty() && firstUrl(n.body) == null
-            NF_LINK -> firstUrl(n.body) != null
-            NF_IMAGE -> n.media.any { it.kind == MK_IMAGE }
-            NF_AUDIO -> n.media.any { it.kind == MK_AUDIO }
-            NF_VIDEO -> n.media.any { it.kind == MK_VIDEO }
+            NF_TEXT -> text && firstUrl(n.body) == null
+            NF_LINK -> text && firstUrl(n.body) != null
+            NF_IMAGE -> !text && n.media.any { it.kind == MK_IMAGE }
+            NF_AUDIO -> !text && n.media.any { it.kind == MK_AUDIO }
+            NF_VIDEO -> !text && n.media.any { it.kind == MK_VIDEO }
+            NF_FILE -> !text && n.media.any { it.kind == MK_FILE }
             else -> true
         }
+    }
+
+    /** Groups with a single member are dissolved. */
+    fun normalizeGroups(list: List<Note>): List<Note> {
+        val counts = HashMap<Long, Int>()
+        for (n in list) if (n.groupId != 0L) counts[n.groupId] = (counts[n.groupId] ?: 0) + 1
+        return list.map { n -> if (n.groupId != 0L && (counts[n.groupId] ?: 0) < 2) n.copy(groupId = 0L) else n }
     }
 
     fun searchMatch(n: Note, q: String): Boolean {
@@ -195,6 +216,7 @@ object NoteStore {
                         archived = o.optBoolean("arch", false),
                         collectionId = o.optLong("col", 0L),
                         media = media,
+                        groupId = o.optLong("grp", 0L),
                     )
                 )
             }
@@ -229,6 +251,7 @@ object NoteStore {
                 o.put("pin", n.pinned)
                 o.put("arch", n.archived)
                 o.put("col", n.collectionId)
+                if (n.groupId != 0L) o.put("grp", n.groupId)
                 val ma = JSONArray()
                 for (m in n.media) {
                     val mo = JSONObject()
@@ -317,7 +340,7 @@ object NoteStore {
     @Suppress("DEPRECATION")
     private fun streamsOf(i: Intent): List<Uri> = i.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM) ?: arrayListOf()
 
-    /** Used by the share target: saves what another app shared as a new note in the Inbox. */
+    /** Used by the share target: every shared file becomes its own item in the Inbox. */
     fun createFromShare(c: Context, i: Intent): Boolean {
         val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: ""
         val subject = i.getStringExtra(Intent.EXTRA_SUBJECT) ?: i.getStringExtra(Intent.EXTRA_TITLE) ?: ""
@@ -335,8 +358,33 @@ object NoteStore {
         }
         if (text.isBlank() && media.isEmpty()) return false
         val now = System.currentTimeMillis()
-        val n = Note(Store.newId(), subject.trim(), text.trim(), now, now, false, false, 0L, media)
-        update(c) { d -> NotesData(listOf(n) + d.notes, d.collections) }
+        val out = ArrayList<Note>()
+        if (media.size == 1) {
+            // one file with its caption stays together
+            out.add(Note(Store.newId(), subject.trim(), text.trim(), now, now, false, false, 0L, media))
+        } else {
+            if (text.isNotBlank()) out.add(Note(Store.newId(), subject.trim(), text.trim(), now, now, false, false, 0L, emptyList()))
+            var k = 0L
+            for (m in media) {
+                out.add(Note(Store.newId(), "", "", now + k, now + k, false, false, 0L, listOf(m)))
+                k++
+            }
+        }
+        update(c) { d -> NotesData(out.reversed() + d.notes, d.collections) }
         return true
+    }
+
+    /** Copies picked files in and returns one standalone note per file. */
+    fun itemsFromUris(c: Context, uris: List<Uri>, col: Long): List<Note> {
+        val now = System.currentTimeMillis()
+        val out = ArrayList<Note>()
+        var k = 0L
+        for (u in uris) {
+            val m = copyIn(c, u) ?: continue
+            val dur = if (m.kind == MK_VIDEO || m.kind == MK_AUDIO) NoteMedia.durationOf(mediaFile(c, m)) else 0L
+            out.add(Note(Store.newId(), "", "", now + k, now + k, false, false, col, listOf(m.copy(durMs = dur))))
+            k++
+        }
+        return out
     }
 }

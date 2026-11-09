@@ -42,6 +42,7 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
     val st = vm.settings
     val lang = remember { ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lang", "system") ?: "system" }
     val font = remember { fontKey(ctx) }
+    val theme = remember { themeKey(ctx) }
     var showLog by remember { mutableStateOf(false) }
     var logText by remember { mutableStateOf("") }
     var bkBasic by remember { mutableStateOf(true) }
@@ -97,6 +98,23 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
                     SegPill(stringResource(R.string.font_cairo), font == "cairo", { onFont("cairo") })
                     SegPill(stringResource(R.string.font_plex), font == "plex", { onFont("plex") })
                     SegPill(stringResource(R.string.font_system), font == "system", { onFont("system") })
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(stringResource(R.string.theme_label), color = cs.onSurfaceVariant, fontSize = 13.sp)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.theme_system), theme == "system", {
+                        vm.changeTheme("system")
+                        onFont(font)
+                    })
+                    SegPill(stringResource(R.string.theme_light), theme == "light", {
+                        vm.changeTheme("light")
+                        onFont(font)
+                    })
+                    SegPill(stringResource(R.string.theme_dark), theme == "dark", {
+                        vm.changeTheme("dark")
+                        onFont(font)
+                    })
                 }
             }
 

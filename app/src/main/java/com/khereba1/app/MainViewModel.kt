@@ -62,6 +62,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var restoreInfo by mutableStateOf<BackupInfo?>(null)
         private set
 
+    var tasksSub by mutableStateOf(0)
+        private set
+    var habits by mutableStateOf<List<Habit>>(emptyList())
+        private set
+    var courses by mutableStateOf<List<Course>>(emptyList())
+        private set
+
+    fun openTasksSub(i: Int) {
+        tasksSub = i
+    }
+
+    private fun changeHabits(change: (List<Habit>) -> List<Habit>) {
+        habits = change(habits)
+        Trackers.saveHabits(app, habits)
+    }
+
+    private fun changeCourses(change: (List<Course>) -> List<Course>) {
+        courses = change(courses)
+        Trackers.saveCourses(app, courses)
+    }
+
+    fun addHabit(name: String) {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return
+        changeHabits { it + Habit(Store.newId(), n, emptyList()) }
+    }
+
+    fun toggleHabitDay(id: Long, day: Long) {
+        changeHabits { list ->
+            list.map { h ->
+                if (h.id == id) h.copy(days = if (h.days.contains(day)) h.days - day else h.days + day) else h
+            }
+        }
+    }
+
+    fun renameHabit(id: Long, name: String) {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return
+        changeHabits { list -> list.map { h -> if (h.id == id) h.copy(name = n) else h } }
+    }
+
+    fun deleteHabit(id: Long) {
+        changeHabits { list -> list.filter { it.id != id } }
+    }
+
+    fun addCourse(name: String) {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return
+        changeCourses { it + Course(Store.newId(), n, 10, 0) }
+    }
+
+    fun stepCourse(id: Long, delta: Int) {
+        changeCourses { list -> list.map { c -> if (c.id == id) c.copy(done = (c.done + delta).coerceIn(0, c.total)) else c } }
+    }
+
+    fun editCourse(id: Long, name: String, total: Int) {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return
+        val t = total.coerceIn(1, 9999)
+        changeCourses { list -> list.map { c -> if (c.id == id) c.copy(name = n, total = t, done = c.done.coerceAtMost(t)) else c } }
+    }
+
+    fun deleteCourse(id: Long) {
+        changeCourses { list -> list.filter { it.id != id } }
+    }
+
     var notes by mutableStateOf(NotesData(emptyList(), emptyList()))
         private set
     var noteQuery by mutableStateOf("")
@@ -87,6 +153,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshAll(false)
         ledgers = LedgerStore.load(app)
         notes = NoteStore.load(app)
+        habits = Trackers.loadHabits(app)
+        courses = Trackers.loadCourses(app)
         viewModelScope.launch(Dispatchers.IO) { Backup.autoIfDue(app) }
     }
 
@@ -134,6 +202,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ---------------- navigation ----------------
 
     fun openTab(index: Int) {
+        viewer = null
+        selected = emptySet()
         if (editing != null) closeNote()
         tab = index
         overlay = OVERLAY_NONE
@@ -310,6 +380,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Alerts.ensureChannel(app)
     }
 
+    fun changeTheme(key: String) {
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("theme", key).commit()
+    }
+
     fun changeFont(key: String) {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("font", key).commit()
     }
@@ -463,14 +537,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         mutateLedger(ledgerId) { l -> l.copy(lines = l.lines.map { x -> if (x.id == lineId) x.copy(label = n, row = row) else x }) }
     }
 
-    fun editColumn(ledgerId: Long, tableId: Long, colId: Long, name: String, def: String, sumIt: Boolean) {
+    fun editColumn(ledgerId: Long, tableId: Long, colId: Long, name: String, kind: Int, sumIt: Boolean, refA: Long, refB: Long, def: String) {
         val n = name.trim().take(30)
         if (n.isEmpty()) return
+        if (kind == COL_CALC && (refA == 0L || refB == 0L)) return
         mutateLedger(ledgerId) { l ->
             l.copy(
                 tables = l.tables.map { t ->
                     if (t.id == tableId) {
-                        t.copy(columns = t.columns.map { c -> if (c.id == colId) c.copy(name = n, def = def.trim().take(40), sumIt = sumIt) else c })
+                        t.copy(columns = t.columns.map { c -> if (c.id == colId) c.copy(name = n, kind = kind, refA = if (kind == COL_CALC) refA else 0L, refB = if (kind == COL_CALC) refB else 0L, def = if (kind == COL_CALC) "" else def.trim().take(40), sumIt = kind != COL_TEXT && sumIt) else c })
                     } else {
                         t
                     }
@@ -583,18 +658,135 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         noteScope = sc
     }
 
-    fun visibleNotes(): List<Note> {
+    /** The list entries: a single note, or all the members of a group (oldest first). */
+    fun visibleEntries(): List<List<Note>> {
         val scope = noteScope
-        val list = notes.notes.filter { n ->
-            val inScope = when {
+        val inScope = notes.notes.filter { n ->
+            when {
                 scope == -2L -> n.archived
                 n.archived -> false
                 scope == -1L -> true
                 else -> n.collectionId == scope
             }
-            inScope && NoteTools.matches(n, noteType) && NoteTools.searchMatch(n, noteQuery)
         }
-        return list.sortedWith(compareByDescending<Note> { it.pinned }.thenByDescending { it.updatedAt })
+        val sorted = inScope.sortedWith(compareByDescending<Note> { it.pinned }.thenByDescending { it.updatedAt })
+        val out = ArrayList<List<Note>>()
+        val done = HashSet<Long>()
+        for (n in sorted) {
+            if (n.groupId == 0L) {
+                if (NoteTools.matches(n, noteType) && NoteTools.searchMatch(n, noteQuery)) out.add(listOf(n))
+            } else if (done.add(n.groupId)) {
+                val members = sorted.filter { it.groupId == n.groupId }.sortedBy { it.createdAt }
+                if (members.any { NoteTools.matches(it, noteType) && NoteTools.searchMatch(it, noteQuery) }) out.add(members)
+            }
+        }
+        return out
+    }
+
+    private fun mutateNotes(change: (List<Note>) -> List<Note>) {
+        notes = NoteStore.update(app) { d -> NotesData(NoteTools.normalizeGroups(change(d.notes)), d.collections) }
+    }
+
+    // ----- standalone items (photos, videos, voice, files without text) -----
+
+    fun addStandalone(f: java.io.File, kind: Int, mime: String) {
+        viewModelScope.launch {
+            val dur = if (kind == MK_VIDEO) withContext(Dispatchers.IO) { NoteMedia.durationOf(f) } else 0L
+            val now = System.currentTimeMillis()
+            val col = if (noteScope > 0L) noteScope else 0L
+            val n = Note(Store.newId(), "", "", now, now, false, false, col, listOf(Media(Store.newId(), f.name, kind, mime, "", dur)))
+            mutateNotes { list -> listOf(n) + list }
+        }
+    }
+
+    fun importItems(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val col = if (noteScope > 0L) noteScope else 0L
+        viewModelScope.launch {
+            val list = withContext(Dispatchers.IO) { NoteStore.itemsFromUris(app, uris, col) }
+            mutateNotes { old -> list.reversed() + old }
+        }
+    }
+
+    // ----- selection and groups -----
+
+    var selected by mutableStateOf<Set<Long>>(emptySet())
+        private set
+
+    fun toggleSelect(ids: List<Long>) {
+        val all = ids.all { selected.contains(it) }
+        selected = if (all) selected - ids.toSet() else selected + ids
+    }
+
+    fun clearSelection() {
+        selected = emptySet()
+    }
+
+    fun groupSelected() {
+        val ids = selected
+        if (ids.size < 2) return
+        val g = Store.newId()
+        mutateNotes { list -> list.map { n -> if (ids.contains(n.id)) n.copy(groupId = g) else n } }
+        selected = emptySet()
+    }
+
+    fun ungroupIds(ids: Collection<Long>) {
+        val set = ids.toSet()
+        mutateNotes { list -> list.map { n -> if (set.contains(n.id)) n.copy(groupId = 0L) else n } }
+    }
+
+    fun ungroupSelected() {
+        ungroupIds(selected)
+        selected = emptySet()
+    }
+
+    fun moveSelected(col: Long) {
+        val ids = selected
+        mutateNotes { list -> list.map { n -> if (ids.contains(n.id)) n.copy(collectionId = col) else n } }
+        selected = emptySet()
+    }
+
+    fun archiveSelected(flag: Boolean) {
+        val ids = selected
+        mutateNotes { list -> list.map { n -> if (ids.contains(n.id)) n.copy(archived = flag) else n } }
+        selected = emptySet()
+    }
+
+    fun deleteSelected() {
+        val ids = selected
+        val gone = notes.notes.filter { ids.contains(it.id) }
+        for (n in gone) NoteStore.deleteFiles(app, n.media)
+        mutateNotes { list -> list.filter { !ids.contains(it.id) } }
+        selected = emptySet()
+    }
+
+    // ----- in-app viewer -----
+
+    var viewer by mutableStateOf<ViewerState?>(null)
+        private set
+
+    /** Opens a single note or a whole group in the viewer. */
+    fun openViewerFor(list: List<Note>) {
+        val pages = ArrayList<VPage>()
+        for (n in list) {
+            if (NoteTools.hasText(n)) pages.add(VPage(n.id, null, n.title, n.body))
+            for (m in n.media) pages.add(VPage(n.id, m, "", ""))
+        }
+        if (pages.isEmpty()) return
+        val grouped = if (list.size > 1) list.map { it.id } else emptyList()
+        viewer = ViewerState(pages, 0, grouped)
+    }
+
+    /** Opens the attachments of one note (used from the editor), starting at [mediaId]. */
+    fun openViewerMedia(n: Note, mediaId: Long) {
+        val pages = n.media.map { m -> VPage(n.id, m, "", "") }
+        if (pages.isEmpty()) return
+        val idx = n.media.indexOfFirst { it.id == mediaId }.coerceAtLeast(0)
+        viewer = ViewerState(pages, idx, emptyList())
+    }
+
+    fun closeViewer() {
+        viewer = null
     }
 
     /** action: 0 nothing, 1 text, 2 voice, 3 photo, 4 video (used by the quick-capture widget). */
@@ -798,6 +990,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             refreshAll(true)
             ledgers = LedgerStore.load(app)
             notes = NoteStore.load(app)
+            habits = Trackers.loadHabits(app)
+            courses = Trackers.loadCourses(app)
             editing = null
             closeLedgerView()
             backupMsg = LocaleHelper.wrap(app).getString(if (ok) R.string.restore_done else R.string.restore_failed)

@@ -107,6 +107,22 @@ object NoteMedia {
         }
     }
 
+    fun shareMedia(c: Context, m: Media) {
+        try {
+            val f = NoteStore.mediaFile(c, m)
+            if (!f.exists()) return
+            val i = Intent(Intent.ACTION_SEND)
+            i.type = if (m.mime.isEmpty()) "*/*" else m.mime
+            i.putExtra(Intent.EXTRA_STREAM, uriFor(c, f))
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val chooser = Intent.createChooser(i, null)
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            c.startActivity(chooser)
+        } catch (e: Throwable) {
+            AppLog.log("NOTES", "Could not share attachment", e)
+        }
+    }
+
     fun openUrl(c: Context, url: String) {
         try {
             val i = Intent(Intent.ACTION_VIEW, Uri.parse(url))
