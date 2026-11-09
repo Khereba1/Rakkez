@@ -188,6 +188,18 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
 
             Spacer(Modifier.height(12.dp))
 
+            Column(Modifier.fillMaxWidth().panel(cs.surface, 20.dp).padding(16.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.habit_remind), color = cs.onSurface, fontSize = 15.sp)
+                        Text(stringResource(R.string.habit_remind_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp)
+                    }
+                    Switch(checked = vm.habitRemind, onCheckedChange = { v -> vm.changeHabitRemind(v) })
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
             // log
             Column(Modifier.fillMaxWidth().panel(cs.surface, 20.dp).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

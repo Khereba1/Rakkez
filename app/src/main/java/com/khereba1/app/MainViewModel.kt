@@ -83,24 +83,108 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Trackers.saveCourses(app, courses)
     }
 
-    fun addHabit(name: String) {
+    fun addHabit(name: String, quit: Boolean) {
         val n = name.trim().take(40)
         if (n.isEmpty()) return
-        changeHabits { it + Habit(Store.newId(), n, emptyList()) }
+        val h = Habit(Store.newId(), n, emptyList(), quit, if (quit) 90 else 21, Trackers.today(), 0, 0L, 0, Trackers.today() - 1L)
+        changeHabits { listOf(h) + it }
     }
 
-    fun toggleHabitDay(id: Long, day: Long) {
+    /** Only today can be ticked: past and future days can't be filled in. */
+    fun toggleHabitToday(id: Long) {
+        val day = Trackers.today()
         changeHabits { list ->
             list.map { h ->
-                if (h.id == id) h.copy(days = if (h.days.contains(day)) h.days - day else h.days + day) else h
+                if (h.id != id || h.quit) {
+                    h
+                } else {
+                    val nd = if (h.days.contains(day)) h.days - day else h.days + day
+                    val tmp = h.copy(days = nd)
+                    val st = Trackers.streak(tmp)
+                    var done = tmp.doneAt
+                    if (st >= tmp.target && done == 0L) done = day
+                    if (st < tmp.target && done == day) done = 0L
+                    tmp.copy(best = maxOf(tmp.best, st), doneAt = done)
+                }
             }
         }
     }
 
-    fun renameHabit(id: Long, name: String) {
+    fun relapseHabit(id: Long) {
+        val day = Trackers.today()
+        changeHabits { list ->
+            list.map { h ->
+                if (h.id == id && h.quit) {
+                    h.copy(best = maxOf(h.best, Trackers.current(h)), start = day, doneAt = 0L, relapses = h.relapses + 1)
+                } else {
+                    h
+                }
+            }
+        }
+    }
+
+    /** Marks quit-habits whose goal has been reached by the passing of time. */
+    fun refreshHabits() {
+        val day = Trackers.today()
+        val need = habits.any { (it.quit && it.doneAt == 0L && Trackers.current(it) >= it.target) || (!it.quit && it.res == 0L) }
+        if (!need) return
+        changeHabits { list ->
+            list.map { h ->
+                if (h.quit && h.doneAt == 0L && Trackers.current(h) >= h.target) {
+                    h.copy(doneAt = day, best = maxOf(h.best, Trackers.current(h)))
+                } else if (!h.quit && h.res == 0L) {
+                    h.copy(res = day - 1L)
+                } else {
+                    h
+                }
+            }
+        }
+    }
+
+    /** The answer to "you missed some days": kept = I carried on (the days count), otherwise the streak is broken. */
+    fun answerMissed(id: Long, kept: Boolean) {
+        val day = Trackers.today()
+        changeHabits { list ->
+            list.map { h ->
+                if (h.id != id) {
+                    h
+                } else {
+                    val add = if (kept) Trackers.pendingDays(h) else emptyList()
+                    val tmp = h.copy(days = h.days + add, res = day - 1L)
+                    val st = Trackers.streak(tmp)
+                    tmp.copy(
+                        best = maxOf(tmp.best, st),
+                        doneAt = if (st >= tmp.target && tmp.doneAt == 0L) day else tmp.doneAt,
+                    )
+                }
+            }
+        }
+    }
+
+    var habitRemind by mutableStateOf(Trackers.remindOn(app))
+        private set
+
+    fun changeHabitRemind(on: Boolean) {
+        habitRemind = on
+        Trackers.setRemind(app, on)
+        HabitReminder.schedule(app)
+    }
+
+    fun editHabit(id: Long, name: String, target: Int) {
         val n = name.trim().take(40)
         if (n.isEmpty()) return
-        changeHabits { list -> list.map { h -> if (h.id == id) h.copy(name = n) else h } }
+        val t = target.coerceIn(2, 3650)
+        changeHabits { list ->
+            list.map { h ->
+                if (h.id == id) {
+                    val tmp = h.copy(name = n, target = t)
+                    val reached = Trackers.current(tmp) >= t
+                    tmp.copy(doneAt = if (reached) (if (tmp.doneAt == 0L) Trackers.today() else tmp.doneAt) else 0L)
+                } else {
+                    h
+                }
+            }
+        }
     }
 
     fun deleteHabit(id: Long) {
@@ -110,7 +194,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addCourse(name: String) {
         val n = name.trim().take(40)
         if (n.isEmpty()) return
-        changeCourses { it + Course(Store.newId(), n, 10, 0) }
+        changeCourses { listOf(Course(Store.newId(), n, 10, 0)) + it }
     }
 
     fun stepCourse(id: Long, delta: Int) {
@@ -161,6 +245,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ---------------- lifecycle ----------------
 
     fun startTicking() {
+        refreshHabits()
+        HabitReminder.schedule(app)
         val ev = Engine.sync(app)
         if (ev != Engine.EV_NONE) Alerts.cancel(app)
         refreshAll(true)
@@ -697,6 +783,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val n = Note(Store.newId(), "", "", now, now, false, false, col, listOf(Media(Store.newId(), f.name, kind, mime, "", dur)))
             mutateNotes { list -> listOf(n) + list }
         }
+    }
+
+    var voiceRequest by mutableStateOf(0)
+        private set
+
+    fun requestVoice() {
+        voiceRequest = voiceRequest + 1
+    }
+
+    fun addStandaloneMedia(m: Media) {
+        val now = System.currentTimeMillis()
+        val col = if (noteScope > 0L) noteScope else 0L
+        val n = Note(Store.newId(), "", "", now, now, false, false, col, listOf(m))
+        mutateNotes { list -> listOf(n) + list }
     }
 
     fun importItems(uris: List<Uri>, group: Boolean = false) {

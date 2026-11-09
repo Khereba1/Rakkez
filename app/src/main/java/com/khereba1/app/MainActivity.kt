@@ -100,7 +100,11 @@ class MainActivity : ComponentActivity() {
         val note = i.getIntExtra("note", -1)
         if (note >= 0) {
             vm.openTab(3)
-            if (note >= 1) vm.newNote(note)
+            if (note == 2) vm.requestVoice() else if (note >= 1) vm.newNote(note)
+        }
+        if (i.getBooleanExtra("habits", false)) {
+            vm.openTab(0)
+            vm.openTasksSub(1)
         }
         if (i.getBooleanExtra("add", false)) {
             vm.openTab(0)

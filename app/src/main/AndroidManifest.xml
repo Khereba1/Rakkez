@@ -100,6 +100,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".HabitReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".TasksWidget"
             android:exported="true"
             android:label="@string/widget_tasks_label">

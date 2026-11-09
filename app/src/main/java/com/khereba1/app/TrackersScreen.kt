@@ -115,6 +115,8 @@ fun HabitsPane(vm: MainViewModel) {
     val cs = MaterialTheme.colorScheme
     val requester = remember { FocusRequester() }
     var editing by remember { mutableStateOf<Habit?>(null) }
+    var newQuit by remember { mutableStateOf(false) }
+    var showDone by remember { mutableStateOf(false) }
     LaunchedEffect(vm.plusRequest) {
         if (vm.plusRequest == PLUS_TASK) {
             try {
@@ -126,39 +128,119 @@ fun HabitsPane(vm: MainViewModel) {
         }
     }
     val today = Trackers.today()
-    val doneToday = vm.habits.count { it.days.contains(today) }
+    val active = vm.habits.filter { it.doneAt == 0L }
+    val finished = vm.habits.filter { it.doneAt != 0L }
+    val builds = active.filter { !it.quit }
+    val doneToday = builds.count { it.days.contains(today) }
     Column(Modifier.fillMaxSize()) {
-        PaneHeader(stringResource(R.string.habit_summary, doneToday.toString(), vm.habits.size.toString()), vm)
-        AddBar(stringResource(R.string.habit_add_hint), requester) { vm.addHabit(it) }
+        PaneHeader(
+            if (builds.isEmpty()) stringResource(R.string.sub_habits) else stringResource(R.string.habit_summary, doneToday.toString(), builds.size.toString()),
+            vm,
+        )
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            SegPill(stringResource(R.string.habit_kind_build), !newQuit, { newQuit = false })
+            SegPill(stringResource(R.string.habit_kind_quit), newQuit, { newQuit = true })
+        }
+        AddBar(
+            stringResource(if (newQuit) R.string.habit_add_quit_hint else R.string.habit_add_hint),
+            requester,
+        ) { vm.addHabit(it, newQuit) }
         if (vm.habits.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.habit_empty), color = cs.onSurfaceVariant, fontSize = 16.sp, lineHeight = 24.sp)
+                Text(stringResource(R.string.habit_empty), color = cs.onSurfaceVariant, fontSize = 15.sp, lineHeight = 24.sp)
             }
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
             ) {
-                items(vm.habits, key = { it.id }) { h ->
+                items(active, key = { it.id }) { h ->
                     HabitRow(vm, h, today) { editing = h }
+                }
+                if (finished.isNotEmpty()) {
+                    item(key = "habit_done_header") {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { showDone = !showDone }
+                                .padding(vertical = 14.dp, horizontal = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.habit_done_header, finished.size.toString()),
+                                color = cs.onSurfaceVariant,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(if (showDone) "\u25B4" else "\u25BE", color = cs.onSurfaceVariant, fontSize = 16.sp)
+                        }
+                    }
+                    if (showDone) {
+                        items(finished, key = { it.id }) { h ->
+                            HabitRow(vm, h, today) { editing = h }
+                        }
+                    }
                 }
             }
         }
     }
     val e = editing
-    if (e != null) {
-        NameDialog(stringResource(R.string.habit_edit), e.name, { editing = null }, { n ->
-            vm.renameHabit(e.id, n)
-            editing = null
-        })
+    if (e != null) HabitDialog(vm, e) { editing = null }
+    val missed = vm.habits.firstOrNull { Trackers.pendingDays(it).isNotEmpty() }
+    if (missed != null && e == null) {
+        val n = Trackers.pendingDays(missed).size
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text(missed.name) },
+            text = {
+                Text(
+                    stringResource(if (n == 1) R.string.habit_missed_one else R.string.habit_missed_many, n.toString()),
+                    lineHeight = 24.sp,
+                )
+            },
+            confirmButton = { TextButton(onClick = { vm.answerMissed(missed.id, true) }) { Text(stringResource(R.string.habit_missed_kept)) } },
+            dismissButton = { TextButton(onClick = { vm.answerMissed(missed.id, false) }) { Text(stringResource(R.string.habit_missed_fell), color = cs.error) } },
+        )
+    }
+}
+
+@Composable
+private fun ProgressBar(frac: Float, color: androidx.compose.ui.graphics.Color) {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+            .height(10.dp)
+            .clip(RoundedCornerShape(5.dp))
+            .background(cs.surfaceVariant),
+    ) {
+        if (frac > 0f) {
+            Box(
+                Modifier
+                    .fillMaxWidth(frac.coerceIn(0f, 1f))
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(color),
+            )
+        }
     }
 }
 
 @Composable
 private fun HabitRow(vm: MainViewModel, h: Habit, today: Long, onEdit: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    val streak = Trackers.streak(h)
+    val cur = Trackers.current(h)
+    val best = Trackers.bestOf(h)
     var confirm by remember { mutableStateOf(false) }
+    val achieved = h.doneAt != 0L
+    val accent = if (h.quit) cs.tertiary else cs.primary
     Column(
         Modifier
             .fillMaxWidth()
@@ -174,44 +256,106 @@ private fun HabitRow(vm: MainViewModel, h: Habit, today: Long, onEdit: () -> Uni
             ) {
                 Text(h.name, color = cs.onSurface, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    if (streak > 0) "🔥 " + stringResource(R.string.habit_streak, streak.toString()) else stringResource(R.string.habit_no_streak),
-                    color = cs.onSurfaceVariant,
-                    fontSize = 13.sp,
+                    stringResource(if (h.quit) R.string.habit_tag_quit else R.string.habit_tag_build, h.target.toString()),
+                    color = accent,
+                    fontSize = 12.5.sp,
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
-            MiniBtn("✕") { confirm = true }
+            if (achieved) Text("\u2713 " + stringResource(if (h.quit) R.string.habit_quit_done else R.string.habit_build_done), color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            for (back in 6 downTo 0) {
-                val day = today - back.toLong()
-                val on = h.days.contains(day)
-                Box(
-                    Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(if (on) cs.primary else cs.surfaceVariant)
-                        .then(if (back == 0) Modifier.border(2.dp, cs.primary, CircleShape) else Modifier)
-                        .clickable { vm.toggleHabitDay(h.id, day) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (on) Text("✓", color = cs.onPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                }
+        ProgressBar(if (h.target <= 0) 0f else cur.toFloat() / h.target.toFloat(), accent)
+        Text(
+            stringResource(if (h.quit) R.string.habit_quit_progress else R.string.habit_build_progress, cur.toString(), h.target.toString(), best.toString()),
+            color = cs.onSurfaceVariant,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        if (h.quit) {
+            TextButton(onClick = { confirm = true }, modifier = Modifier.padding(top = 2.dp)) {
+                Text(stringResource(R.string.habit_relapse), color = cs.error, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            val on = h.days.contains(today)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(if (on) cs.primary else cs.surfaceVariant)
+                    .clickable { vm.toggleHabitToday(h.id) }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    if (on) "\u2713 " + stringResource(R.string.habit_done_today) else stringResource(R.string.habit_mark_today),
+                    color = if (on) cs.onPrimary else cs.onSurface,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }
+    if (confirm) {
+        ConfirmDialog(
+            text = stringResource(R.string.habit_relapse_confirm, h.name),
+            onYes = {
+                confirm = false
+                vm.relapseHabit(h.id)
+            },
+            onDismiss = { confirm = false },
+        )
+    }
+}
+
+@Composable
+private fun HabitDialog(vm: MainViewModel, h: Habit, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var name by remember { mutableStateOf(h.name) }
+    var target by remember { mutableStateOf(h.target.toString()) }
+    var confirm by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.habit_edit)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.course_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = target,
+                    onValueChange = { v -> target = v.filter { ch -> ch.isDigit() }.take(4) },
+                    label = { Text(stringResource(R.string.habit_target)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(stringResource(R.string.habit_target_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
+                TextButton(onClick = { confirm = true }) { Text(stringResource(R.string.delete), color = cs.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    vm.editHabit(h.id, name, target.toIntOrNull() ?: h.target)
+                    onDismiss()
+                },
+                enabled = name.isNotBlank(),
+            ) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
     if (confirm) {
         ConfirmDialog(
             text = stringResource(R.string.habit_delete_confirm, h.name),
             onYes = {
                 confirm = false
                 vm.deleteHabit(h.id)
+                onDismiss()
             },
             onDismiss = { confirm = false },
         )
@@ -227,6 +371,7 @@ fun CoursesPane(vm: MainViewModel) {
     val cs = MaterialTheme.colorScheme
     val requester = remember { FocusRequester() }
     var editing by remember { mutableStateOf<Course?>(null) }
+    var showDone by remember { mutableStateOf(false) }
     LaunchedEffect(vm.plusRequest) {
         if (vm.plusRequest == PLUS_TASK) {
             try {
@@ -249,8 +394,35 @@ fun CoursesPane(vm: MainViewModel) {
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
             ) {
-                items(vm.courses, key = { it.id }) { c ->
+                val open = vm.courses.filter { it.done < it.total }
+                val fin = vm.courses.filter { it.done >= it.total }
+                items(open, key = { it.id }) { c ->
                     CourseRow(vm, c) { editing = c }
+                }
+                if (fin.isNotEmpty()) {
+                    item(key = "course_done_header") {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { showDone = !showDone }
+                                .padding(vertical = 14.dp, horizontal = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                stringResource(R.string.course_done_header, fin.size.toString()),
+                                color = cs.onSurfaceVariant,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(if (showDone) "\u25B4" else "\u25BE", color = cs.onSurfaceVariant, fontSize = 16.sp)
+                        }
+                    }
+                    if (showDone) {
+                        items(fin, key = { it.id }) { c ->
+                            CourseRow(vm, c) { editing = c }
+                        }
+                    }
                 }
             }
         }
