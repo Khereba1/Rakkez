@@ -380,7 +380,7 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="rec_paused">Paused. Tap the button to continue</string>
     <string name="speed_label">Speed</string>
     <string name="alert_sound">Alert sound</string>
-    <string name="alert_sound_hint">Plays when a focus or break ends, even if the phone is on silent</string>
+    <string name="alert_sound_hint">Used for all app notifications. Only the end of a focus session / break rings even when the phone is on silent</string>
     <string name="snd_bell">Bell</string>
     <string name="snd_chime">Chime</string>
     <string name="snd_beep">Beeps</string>

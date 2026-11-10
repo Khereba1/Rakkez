@@ -87,3 +87,7 @@ Never print, commit or ask for them, and never ask for the backup folder.
 
 ## fix23 (versionCode 24)
 - Video viewer: live scrub preview (exact seek, one at a time via OnSeekCompleteListener, pause while dragging); play/pause icon without circle, smaller; controls don't auto-hide while dragging.
+
+## fix24 (versionCode 25)
+- Default alert sound = marimba (pref key alert_sound2). Habit reminder channel `habit_remind_<tag>` uses the same sound with USAGE_NOTIFICATION (follows silent mode); only focus/break end uses USAGE_ALARM.
+- Video viewer: play icon in accent color; seek bar slightly lower.

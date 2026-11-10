@@ -451,7 +451,7 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
                         indication = null,
                     ) { toggle() },
                 contentAlignment = Alignment.Center,
-            ) { RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, Color.White, 30.dp) }
+            ) { RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, cs.primary, 30.dp) }
         }
         AnimatedVisibility(
             visible = ctl || !playing,
@@ -463,7 +463,7 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
                 Modifier
                     .fillMaxWidth()
                     .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color(0xAA000000))))
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 2.dp),
             ) {
                 SeekBar(
                     frac = shownPos.toFloat() / maxOf(dur, 1).toFloat(),
@@ -497,7 +497,7 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
                 androidx.compose.runtime.CompositionLocalProvider(
                     androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr,
                 ) {
-                    Row(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 4.dp)) {
                         Text(NoteMedia.fmtDuration(shownPos.toLong()), color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
                         Text(NoteMedia.fmtDuration(dur.toLong()), color = Color.White, fontSize = 12.sp)
                     }

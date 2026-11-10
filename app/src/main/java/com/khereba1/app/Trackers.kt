@@ -212,14 +212,26 @@ object HabitReminder {
             val left = list.count { !it.days.contains(today) }
             if (!missed && left == 0) return
             val nm = c.getSystemService(NotificationManager::class.java)
-            val ch = NotificationChannel(CH, tr(c, R.string.habit_channel), NotificationManager.IMPORTANCE_DEFAULT)
+            // same sound as the timer, but a normal notification: follows the phone's silent mode
+            val chId = CH + "_" + Alerts.soundTag(c)
+            for (old in nm.notificationChannels) {
+                if (old.id.startsWith(CH) && old.id != chId) nm.deleteNotificationChannel(old.id)
+            }
+            val ch = NotificationChannel(chId, tr(c, R.string.habit_channel), NotificationManager.IMPORTANCE_DEFAULT)
+            ch.setSound(
+                Alerts.soundUri(c),
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+            )
             nm.createNotificationChannel(ch)
             val text = if (missed) tr(c, R.string.habit_notif_missed) else String.format(tr(c, R.string.habit_notif_left), left.toString())
             val open = Intent(c, MainActivity::class.java)
             open.putExtra("habits", true)
             open.data = android.net.Uri.parse("rakkez://open/habits")
             val pi = PendingIntent.getActivity(c, 22, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val n = NotificationCompat.Builder(c, CH)
+            val n = NotificationCompat.Builder(c, chId)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle(tr(c, R.string.habit_notif_title))
                 .setContentText(text)

@@ -263,13 +263,13 @@ object Alerts {
     val SOUND_KEYS = listOf("bell", "chime", "beep", "marimba", "system", "custom")
 
     fun soundKey(c: Context): String =
-        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("alert_sound", "bell") ?: "bell"
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("alert_sound2", "marimba") ?: "marimba"
 
     fun customUri(c: Context): String =
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("alert_custom", "") ?: ""
 
     fun setSound(c: Context, key: String, custom: String? = null) {
-        val e = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("alert_sound", key)
+        val e = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("alert_sound2", key)
         if (custom != null) e.putString("alert_custom", custom)
         e.commit()
         ensureChannel(c)
@@ -285,16 +285,20 @@ object Alerts {
             "system" -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             "custom" -> {
                 val u = customUri(c)
-                if (u.isEmpty()) raw("snd_bell") else android.net.Uri.parse(u)
+                if (u.isEmpty()) raw("snd_marimba") else android.net.Uri.parse(u)
             }
-            else -> raw("snd_bell")
+            "bell" -> raw("snd_bell")
+            else -> raw("snd_marimba")
         }
     }
 
-    private fun channelId(c: Context): String {
+    /** Short tag that changes with the chosen sound (channels are immutable, so each sound gets its own). */
+    fun soundTag(c: Context): String {
         val k = soundKey(c)
-        return if (k == "custom") CHANNEL + "_custom_" + customUri(c).hashCode().toString().replace('-', 'm') else CHANNEL + "_" + k
+        return if (k == "custom") "custom_" + customUri(c).hashCode().toString().replace('-', 'm') else k
     }
+
+    private fun channelId(c: Context): String = CHANNEL + "_" + soundTag(c)
 
     private fun alarmAttrs(): android.media.AudioAttributes =
         android.media.AudioAttributes.Builder()
