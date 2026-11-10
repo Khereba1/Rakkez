@@ -583,7 +583,34 @@ fun NoteCard(vm: MainViewModel, entry: List<Note>) {
                     Text(dateLine, color = cs.onSurfaceVariant, fontSize = 11.5.sp)
                 }
             }
-        } else if (mediaOnly && first != null && (first.kind == MK_IMAGE || first.kind == MK_VIDEO)) {
+        } else if (mediaOnly && first != null && first.kind == MK_VIDEO) {
+            // video: same framed card as a voice note (rounded preview inside a panel + a info row)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(if (isSel) cs.primaryContainer else cs.surface)
+                    .padding(10.dp),
+            ) {
+                MediaCover(first, Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(14.dp)), 1000)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 6.dp, end = 6.dp, top = 10.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RkIcon(RkIc.VIDEO, cs.onSurfaceVariant, 18.dp)
+                    Text(
+                        if (first.durMs > 0L) NoteMedia.fmtDuration(first.durMs) else "",
+                        color = cs.onSurface,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp),
+                    )
+                    Text(dateLine, color = cs.onSurfaceVariant, fontSize = 11.5.sp)
+                }
+            }
+        } else if (mediaOnly && first != null && first.kind == MK_IMAGE) {
             // photo / video: a big picture card
             Box(Modifier.fillMaxWidth()) {
                 MediaCover(first, Modifier.fillMaxWidth().height(190.dp), 1000)
