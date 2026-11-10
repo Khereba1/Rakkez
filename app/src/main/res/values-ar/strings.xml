@@ -377,4 +377,5 @@
     <string name="habit_remind">تذكير بالعادات</string>
     <string name="habit_remind_hint">إشعار الساعة 9 بالليل لو في عادة لسه ما اتعلّمتش</string>
     <string name="rec_paused">متوقف مؤقتًا. اضغط الزرار عشان تكمل</string>
+    <string name="speed_label">السرعة</string>
 </resources>

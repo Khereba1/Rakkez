@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -63,6 +64,7 @@ fun NoteViewer(vm: MainViewModel, st: ViewerState) {
     var menu by remember { mutableStateOf(false) }
     var zoomed by remember { mutableStateOf(false) }
     var speed by remember { mutableStateOf(1f) }
+    var speedMenu by remember { mutableStateOf(false) }
     val cur = st.pages[pager.currentPage.coerceIn(0, total - 1)]
 
     Box(
@@ -153,19 +155,13 @@ fun NoteViewer(vm: MainViewModel, st: ViewerState) {
                         )
                     }
                     if (cm != null && (cm.kind == MK_AUDIO || cm.kind == MK_VIDEO)) {
-                        for (sp in listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        (if (sp == speed) "\u2713  " else "     ") + "\u00D7" + (if (sp == 0.75f) "0.75" else if (sp == 1.25f) "1.25" else sp.toString().removeSuffix(".0")),
-                                    )
-                                },
-                                onClick = {
-                                    speed = sp
-                                    menu = false
-                                },
-                            )
-                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.speed_label) + "  \u00D7" + speedText(speed)) },
+                            onClick = {
+                                menu = false
+                                speedMenu = true
+                            },
+                        )
                     }
                     if (st.grouped.isNotEmpty()) {
                         DropdownMenuItem(
@@ -178,10 +174,23 @@ fun NoteViewer(vm: MainViewModel, st: ViewerState) {
                         )
                     }
                 }
+                DropdownMenu(expanded = speedMenu, onDismissRequest = { speedMenu = false }) {
+                    for (sp in listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)) {
+                        DropdownMenuItem(
+                            text = { Text((if (sp == speed) "\u2713  " else "     ") + "\u00D7" + speedText(sp)) },
+                            onClick = {
+                                speed = sp
+                                speedMenu = false
+                            },
+                        )
+                    }
+                }
             }
         }
     }
 }
+
+private fun speedText(sp: Float): String = if (sp == 0.75f) "0.75" else if (sp == 1.25f) "1.25" else sp.toString().removeSuffix(".0")
 
 @Composable
 private fun TextPage(vm: MainViewModel, pg: VPage) {

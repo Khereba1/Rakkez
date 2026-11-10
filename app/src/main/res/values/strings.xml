@@ -378,4 +378,5 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="habit_remind">Habit reminders</string>
     <string name="habit_remind_hint">A notification at 9 pm if a habit is still not ticked</string>
     <string name="rec_paused">Paused. Tap the button to continue</string>
+    <string name="speed_label">Speed</string>
 </resources>
