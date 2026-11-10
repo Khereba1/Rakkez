@@ -43,6 +43,14 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
     val lang = remember { ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lang", "system") ?: "system" }
     val font = remember { fontKey(ctx) }
     val theme = remember { themeKey(ctx) }
+    val soundPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        val d = res.data
+        if (d != null) {
+            @Suppress("DEPRECATION")
+            val u = d.getParcelableExtra<android.net.Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (u != null) vm.changeAlertSound("custom", u.toString())
+        }
+    }
     var showLog by remember { mutableStateOf(false) }
     var logText by remember { mutableStateOf("") }
     var bkBasic by remember { mutableStateOf(true) }
@@ -183,6 +191,37 @@ fun SettingsScreen(vm: MainViewModel, onLanguage: (String) -> Unit, onFont: (Str
                         Text(stringResource(R.string.auto_backup_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp)
                     }
                     Switch(checked = st.autoBackup, onCheckedChange = { v -> vm.changeAutoBackup(v) })
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // alert sound
+            Column(Modifier.fillMaxWidth().panel(cs.surface, 20.dp).padding(16.dp)) {
+                Text(stringResource(R.string.alert_sound), color = cs.onSurface, fontSize = 15.sp)
+                Text(stringResource(R.string.alert_sound_hint), color = cs.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.snd_bell), vm.alertSound == "bell", { vm.changeAlertSound("bell") })
+                    SegPill(stringResource(R.string.snd_chime), vm.alertSound == "chime", { vm.changeAlertSound("chime") })
+                    SegPill(stringResource(R.string.snd_beep), vm.alertSound == "beep", { vm.changeAlertSound("beep") })
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SegPill(stringResource(R.string.snd_marimba), vm.alertSound == "marimba", { vm.changeAlertSound("marimba") })
+                    SegPill(stringResource(R.string.snd_system), vm.alertSound == "system", { vm.changeAlertSound("system") })
+                    SegPill(stringResource(R.string.snd_custom), vm.alertSound == "custom", {
+                        try {
+                            val i = android.content.Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                            i.putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_ALL)
+                            i.putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                            val cur = Alerts.customUri(ctx)
+                            if (cur.isNotEmpty()) i.putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, android.net.Uri.parse(cur))
+                            soundPicker.launch(i)
+                        } catch (e: Throwable) {
+                            AppLog.log("ALERT", "Picker failed", e)
+                        }
+                    })
                 }
             }
 

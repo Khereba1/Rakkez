@@ -294,6 +294,8 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
     var dragging by remember { mutableStateOf(false) }
     var dragPos by remember { mutableStateOf(0f) }
     var ctl by remember { mutableStateOf(true) }
+    var ratio by remember { mutableStateOf(0f) }
+    val cs = MaterialTheme.colorScheme
 
     fun toggle() {
         val v = vv[0] ?: return
@@ -364,7 +366,12 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
     }
 
     val shownPos = if (dragging) dragPos.toInt() else pos
-    Box(Modifier.fillMaxSize()) {
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        val boxW = maxWidth
+        val boxH = maxHeight
+        val fitW = if (ratio <= 0f) boxW else if (ratio > boxW / boxH) boxW else boxH * ratio
+        val fitH = if (ratio <= 0f) boxH else if (ratio > boxW / boxH) boxW / ratio else boxH
+        Box(Modifier.size(fitW, fitH)) {
         AndroidView(
             factory = { c ->
                 val v = VideoView(c)
@@ -372,6 +379,7 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
                 v.setOnPreparedListener { mp ->
                     mpHolder[0] = mp
                     if (v.duration > 0) dur = v.duration
+                    if (mp.videoWidth > 0 && mp.videoHeight > 0) ratio = mp.videoWidth.toFloat() / mp.videoHeight.toFloat()
                     if (active) {
                         v.start()
                         playing = true
@@ -413,10 +421,10 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
                 Modifier
                     .size(72.dp)
                     .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(Color(0x99000000))
+                    .background(cs.primaryContainer)
                     .clickable { toggle() },
                 contentAlignment = Alignment.Center,
-            ) { RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, Color.White, 34.dp) }
+            ) { RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, cs.onPrimaryContainer, 34.dp) }
         }
         AnimatedVisibility(
             visible = ctl || !playing,
@@ -427,7 +435,8 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color(0xAA000000))))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
                 SeekBar(
                     frac = shownPos.toFloat() / maxOf(dur, 1).toFloat(),
@@ -444,14 +453,19 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
                         }
                         dragging = false
                     },
-                    track = Color(0x55FFFFFF),
-                    fill = Color.White,
+                    track = Color(0x66FFFFFF),
+                    fill = cs.primary,
                 )
-                Row(Modifier.fillMaxWidth()) {
-                    Text(NoteMedia.fmtDuration(shownPos.toLong()), color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Text(NoteMedia.fmtDuration(dur.toLong()), color = Color.White, fontSize = 12.sp)
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr,
+                ) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(NoteMedia.fmtDuration(shownPos.toLong()), color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text(NoteMedia.fmtDuration(dur.toLong()), color = Color.White, fontSize = 12.sp)
+                    }
                 }
             }
+        }
         }
     }
 }

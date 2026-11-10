@@ -170,6 +170,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         HabitReminder.schedule(app)
     }
 
+    var alertSound by mutableStateOf(Alerts.soundKey(app))
+        private set
+
+    fun changeAlertSound(key: String, custom: String? = null) {
+        Alerts.setSound(app, key, custom)
+        alertSound = key
+        Alerts.play(app)
+    }
+
     fun editHabit(id: Long, name: String, target: Int) {
         val n = name.trim().take(40)
         if (n.isEmpty()) return

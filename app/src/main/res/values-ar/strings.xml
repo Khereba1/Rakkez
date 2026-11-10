@@ -378,4 +378,12 @@
     <string name="habit_remind_hint">إشعار الساعة 9 بالليل لو في عادة لسه ما اتعلّمتش</string>
     <string name="rec_paused">متوقف مؤقتًا. اضغط الزرار عشان تكمل</string>
     <string name="speed_label">السرعة</string>
+    <string name="alert_sound">صوت التنبيه</string>
+    <string name="alert_sound_hint">بيشتغل لما فترة التركيز أو الراحة تخلص، حتى لو الموبايل صامت</string>
+    <string name="snd_bell">جرس</string>
+    <string name="snd_chime">رنين</string>
+    <string name="snd_beep">صفّارات</string>
+    <string name="snd_marimba">ماريمبا</string>
+    <string name="snd_system">النظام</string>
+    <string name="snd_custom">من الجهاز</string>
 </resources>

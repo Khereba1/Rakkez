@@ -260,13 +260,61 @@ class TimerReceiver : BroadcastReceiver() {
 object Alerts {
     const val CHANNEL = "timer_done"
     private const val NOTIF_ID = 1001
+    val SOUND_KEYS = listOf("bell", "chime", "beep", "marimba", "system", "custom")
+
+    fun soundKey(c: Context): String =
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("alert_sound", "bell") ?: "bell"
+
+    fun customUri(c: Context): String =
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("alert_custom", "") ?: ""
+
+    fun setSound(c: Context, key: String, custom: String? = null) {
+        val e = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("alert_sound", key)
+        if (custom != null) e.putString("alert_custom", custom)
+        e.commit()
+        ensureChannel(c)
+    }
+
+    /** Resolved sound uri for the current choice. */
+    fun soundUri(c: Context): android.net.Uri {
+        val raw = fun(n: String): android.net.Uri = android.net.Uri.parse("android.resource://" + c.packageName + "/raw/" + n)
+        return when (soundKey(c)) {
+            "chime" -> raw("snd_chime")
+            "beep" -> raw("snd_beep")
+            "marimba" -> raw("snd_marimba")
+            "system" -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            "custom" -> {
+                val u = customUri(c)
+                if (u.isEmpty()) raw("snd_bell") else android.net.Uri.parse(u)
+            }
+            else -> raw("snd_bell")
+        }
+    }
+
+    private fun channelId(c: Context): String {
+        val k = soundKey(c)
+        return if (k == "custom") CHANNEL + "_custom_" + customUri(c).hashCode().toString().replace('-', 'm') else CHANNEL + "_" + k
+    }
+
+    private fun alarmAttrs(): android.media.AudioAttributes =
+        android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
 
     fun ensureChannel(c: Context) {
         try {
             val nm = c.getSystemService(NotificationManager::class.java)
-            val ch = NotificationChannel(CHANNEL, tr(c, R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
+            val id = channelId(c)
+            // channel settings cannot change after creation, so each sound gets its own channel
+            for (old in nm.notificationChannels) {
+                if (old.id.startsWith(CHANNEL) && old.id != id) nm.deleteNotificationChannel(old.id)
+            }
+            val ch = NotificationChannel(id, tr(c, R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
             ch.description = tr(c, R.string.channel_desc)
             ch.enableVibration(true)
+            // alarm usage: plays even when the phone is on silent / vibrate
+            ch.setSound(soundUri(c), alarmAttrs())
             nm.createNotificationChannel(ch)
         } catch (e: Throwable) {
             AppLog.log("ALERT", "Channel failed", e)
@@ -278,6 +326,7 @@ object Alerts {
             if (Build.VERSION.SDK_INT >= 33 &&
                 ContextCompat.checkSelfPermission(c, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
             ) return
+            ensureChannel(c)
             val focus = ev == Engine.EV_FOCUS_DONE
             val title = tr(c, if (focus) R.string.notif_focus_done_title else R.string.notif_break_done_title)
             val text = tr(c, if (focus) R.string.notif_focus_done_text else R.string.notif_break_done_text)
@@ -285,7 +334,7 @@ object Alerts {
             open.putExtra("tab", 1)
             open.data = android.net.Uri.parse("rakkez://open/notification")
             val pi = PendingIntent.getActivity(c, 11, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val n = NotificationCompat.Builder(c, CHANNEL)
+            val n = NotificationCompat.Builder(c, channelId(c))
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle(title)
                 .setContentText(text)
@@ -308,19 +357,31 @@ object Alerts {
         }
     }
 
-    /** In-app sound + vibration when a period ends while the app is open. */
-    @Suppress("DEPRECATION")
-    fun ding(c: Context) {
+    private var current: android.media.Ringtone? = null
+
+    /** Plays the chosen sound on the alarm stream (audible on silent). */
+    fun play(c: Context) {
         try {
-            val r = RingtoneManager.getRingtone(c, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
-            r?.play()
+            current?.stop()
+            val r = RingtoneManager.getRingtone(c, soundUri(c))
+            if (r != null) {
+                r.audioAttributes = alarmAttrs()
+                r.play()
+                current = r
+            }
         } catch (e: Throwable) {
             AppLog.log("ALERT", "Sound failed", e)
         }
+    }
+
+    /** In-app sound + vibration when a period ends while the app is open. */
+    fun ding(c: Context) {
+        play(c)
         try {
             val v: Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
                 (c.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
             } else {
+                @Suppress("DEPRECATION")
                 c.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             }
             v?.vibrate(VibrationEffect.createWaveform(longArrayOf(0L, 250L, 150L, 250L), -1))

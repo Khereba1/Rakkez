@@ -1209,7 +1209,7 @@ fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true, speed: F
                 )
             }
             Text(
-                if (!seekable && !playing) NoteMedia.fmtDuration(total.toLong()) else NoteMedia.fmtDuration(shownPos.toLong()) + " / " + NoteMedia.fmtDuration(total.toLong()),
+                if (!seekable && !playing) NoteMedia.fmtDuration(total.toLong()) else "\u200E" + NoteMedia.fmtDuration(shownPos.toLong()) + " / " + NoteMedia.fmtDuration(total.toLong()),
                 color = cs.onSurfaceVariant,
                 fontSize = 11.5.sp,
                 modifier = Modifier.padding(start = 6.dp),
