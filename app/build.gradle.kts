@@ -14,7 +14,7 @@ android {
         applicationId = "com.khereba1.rakkez"
         minSdk = 29
         targetSdk = 34
-        versionCode = 23
+        versionCode = 24
         versionName = "3.0"
     }
 

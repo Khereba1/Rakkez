@@ -84,3 +84,6 @@ Never print, commit or ask for them, and never ask for the backup folder.
 ## fix22 (versionCode 23)
 - Video viewer: controls now sit on the video frame itself (BoxWithConstraints sized by video ratio), accent-colored like audio; times forced LTR.
 - Alert sound: `Alerts` plays on USAGE_ALARM (audible on silent); one notification channel per sound (`timer_done_<key>`); sounds = res/raw snd_bell/chime/beep/marimba + system + custom (ringtone picker). Settings panel + `vm.changeAlertSound`.
+
+## fix23 (versionCode 24)
+- Video viewer: live scrub preview (exact seek, one at a time via OnSeekCompleteListener, pause while dragging); play/pause icon without circle, smaller; controls don't auto-hide while dragging.

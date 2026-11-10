@@ -295,6 +295,24 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
     var dragPos by remember { mutableStateOf(0f) }
     var ctl by remember { mutableStateOf(true) }
     var ratio by remember { mutableStateOf(0f) }
+    val wasPlaying = remember { booleanArrayOf(false) }
+    val seeking = remember { booleanArrayOf(false) }
+    val pending = remember { intArrayOf(-1) }
+
+    /** Live scrub preview: one exact seek at a time, the latest wanted position is queued. */
+    fun scrubTo(ms: Int) {
+        val p = mpHolder[0] ?: return
+        if (seeking[0]) {
+            pending[0] = ms
+            return
+        }
+        seeking[0] = true
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26) p.seekTo(ms.toLong(), android.media.MediaPlayer.SEEK_CLOSEST) else p.seekTo(ms)
+        } catch (e: Throwable) {
+            seeking[0] = false
+        }
+    }
     val cs = MaterialTheme.colorScheme
 
     fun toggle() {
@@ -358,8 +376,8 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
             androidx.compose.runtime.withFrameNanos { }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(playing, ctl) {
-        if (playing && ctl) {
+    androidx.compose.runtime.LaunchedEffect(playing, ctl, dragging) {
+        if (playing && ctl && !dragging) {
             kotlinx.coroutines.delay(2500L)
             ctl = false
         }
@@ -378,6 +396,14 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
                 v.setVideoURI(Uri.fromFile(java.io.File(path)))
                 v.setOnPreparedListener { mp ->
                     mpHolder[0] = mp
+                    mp.setOnSeekCompleteListener {
+                        seeking[0] = false
+                        val q = pending[0]
+                        if (q >= 0) {
+                            pending[0] = -1
+                            scrubTo(q)
+                        }
+                    }
                     if (v.duration > 0) dur = v.duration
                     if (mp.videoWidth > 0 && mp.videoHeight > 0) ratio = mp.videoWidth.toFloat() / mp.videoHeight.toFloat()
                     if (active) {
@@ -419,12 +445,13 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
         ) {
             Box(
                 Modifier
-                    .size(72.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(cs.primaryContainer)
-                    .clickable { toggle() },
+                    .size(64.dp)
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                    ) { toggle() },
                 contentAlignment = Alignment.Center,
-            ) { RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, cs.onPrimaryContainer, 34.dp) }
+            ) { RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, Color.White, 30.dp) }
         }
         AnimatedVisibility(
             visible = ctl || !playing,
@@ -441,13 +468,24 @@ private fun VideoPage(m: Media, active: Boolean, speed: Float) {
                 SeekBar(
                     frac = shownPos.toFloat() / maxOf(dur, 1).toFloat(),
                     onChange = { f ->
+                        if (!dragging) {
+                            wasPlaying[0] = playing
+                            try {
+                                if (playing) vv[0]?.pause()
+                            } catch (e: Throwable) {
+                                // ignore
+                            }
+                        }
                         dragging = true
                         dragPos = f * maxOf(dur, 1).toFloat()
+                        scrubTo(dragPos.toInt())
                     },
                     onDone = {
                         try {
-                            vv[0]?.seekTo(dragPos.toInt())
+                            pending[0] = -1
                             pos = dragPos.toInt()
+                            scrubTo(pos)
+                            if (wasPlaying[0]) vv[0]?.start()
                         } catch (e: Throwable) {
                             // ignore
                         }
