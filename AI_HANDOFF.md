@@ -62,6 +62,10 @@ The stable signing key lives in GitHub Secrets (KEYSTORE_BASE64, KEYSTORE_PASSWO
 Never print, commit or ask for them, and never ask for the backup folder.
 `bash share_zip.sh` builds a clean `<folder>-for-AI.zip` (no keys, env files, build output or APKs) for sharing.
 
+## fix13 (v14 / 2.3): AudioPlayer has a seek bar (Slider, forced LTR), pause keeps position, time pos/total.
+
+## fix16 (v17 / 2.6): list audio cards are non-seekable (play + thin progress while playing), seek bar only in viewer/editor; smooth progress via withFrameNanos; visibleEntries memoized; group card = tiles for photos/videos + compact rows for voice/files.
+
 ## fix12 (v13 / 2.2): RkIcons.kt (drawn icons, no emoji), selection bar w/ units logic, VoiceSheet(visible,onClose,onSaved) with pause/resume used by list and editor, TextDirection.Content in editor, title lineHeight/cursor fix, nav items 50dp concentric, typography lineHeightStyle center.
 
 ## fix11 (v12 / 2.1): missed-days prompt for build habits (Habit.res = settled-through day; answer kept/slipped), 9pm HabitReminder (AlarmManager inexact, rescheduled on app open, not on reboot), settings switch.

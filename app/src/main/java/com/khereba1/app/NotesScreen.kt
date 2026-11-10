@@ -140,7 +140,7 @@ fun NotesList(vm: MainViewModel) {
     val selecting = vm.selected.isNotEmpty()
     BackHandler(enabled = selecting) { vm.clearSelection() }
 
-    val visible = vm.visibleEntries()
+    val visible = remember(vm.notes, vm.noteScope, vm.noteType, vm.noteQuery) { vm.visibleEntries() }
     val scope = vm.noteScope
     val currentCol = vm.notes.collections.firstOrNull { it.id == scope }
 
@@ -517,32 +517,60 @@ fun NoteCard(vm: MainViewModel, entry: List<Note>) {
             },
     ) {
         if (grouped) {
-            // collage of the members, with a counter
+            // visual members as a row of tiles; voice notes / files / texts as compact rows under them
+            val visual = entry.filter { x -> x.media.firstOrNull()?.let { it.kind == MK_IMAGE || it.kind == MK_VIDEO } == true }
+            val others = entry.filter { x -> !visual.contains(x) }
             Column(
                 Modifier
                     .fillMaxWidth()
                     .background(if (isSel) cs.primaryContainer else cs.surface)
                     .padding(12.dp),
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                    for (x in entry.take(4)) {
-                        val m = x.media.firstOrNull()
-                        val tile = Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                        if (m != null && (m.kind == MK_IMAGE || m.kind == MK_VIDEO)) {
-                            MediaCover(m, tile, 300)
-                        } else {
-                            Box(tile.background(cs.surfaceVariant).padding(6.dp), contentAlignment = Alignment.Center) {
-                                if (m != null) {
-                                    RkIcon(if (m.kind == MK_AUDIO) RkIc.MIC else RkIc.FILE, cs.onSurfaceVariant, 26.dp)
-                                } else {
-                                    Text(NoteTools.headline(x), color = cs.onSurfaceVariant, fontSize = 11.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
+                if (visual.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        for (x in visual.take(4)) {
+                            val m = x.media[0]
+                            MediaCover(m, Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)), 300)
                         }
                     }
+                }
+                for (x in others.take(3)) {
+                    val m = x.media.firstOrNull()
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = if (visual.isNotEmpty() || x !== others[0]) 6.dp else 0.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(cs.surfaceVariant)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RkIcon(
+                            when (m?.kind) {
+                                MK_AUDIO -> RkIc.MIC
+                                MK_FILE -> RkIc.FILE
+                                else -> RkIc.PEN
+                            },
+                            cs.onSurfaceVariant,
+                            18.dp,
+                        )
+                        Spacer(Modifier.size(10.dp))
+                        Text(
+                            when (m?.kind) {
+                                MK_AUDIO -> NoteMedia.fmtDuration(m.durMs)
+                                MK_FILE -> if (m.label.isEmpty()) m.file else m.label
+                                else -> NoteTools.headline(x)
+                            },
+                            color = cs.onSurface,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = LocalTextStyle.current.copy(textDirection = TextDirection.Content),
+                        )
+                    }
+                }
+                if (others.size > 3) {
+                    Text("+" + (others.size - 3).toString(), color = cs.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
                 }
                 Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -591,7 +619,7 @@ fun NoteCard(vm: MainViewModel, entry: List<Note>) {
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AudioPlayer(first, Modifier.weight(1f))
+                AudioPlayer(first, Modifier.weight(1f), seekable = false)
                 Text(dateLine, color = cs.onSurfaceVariant, fontSize = 11.5.sp, modifier = Modifier.padding(start = 10.dp))
             }
         } else if (mediaOnly && first != null) {
@@ -1004,7 +1032,7 @@ fun MediaRow(vm: MainViewModel, m: Media) {
 }
 
 @Composable
-fun AudioPlayer(m: Media, modifier: Modifier) {
+fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true) {
     val cs = MaterialTheme.colorScheme
     val ctx = LocalContext.current
     var playing by remember { mutableStateOf(false) }
@@ -1082,12 +1110,13 @@ fun AudioPlayer(m: Media, modifier: Modifier) {
             val p = player[0]
             if (p != null && !dragging) {
                 try {
-                    pos = p.currentPosition
+                    val c = p.currentPosition
+                    if (c != pos) pos = c
                 } catch (e: Throwable) {
                     // ignore
                 }
             }
-            delay(200L)
+            androidx.compose.runtime.withFrameNanos { }
         }
     }
 
@@ -1105,7 +1134,24 @@ fun AudioPlayer(m: Media, modifier: Modifier) {
         }
         Spacer(Modifier.size(8.dp))
         Column(Modifier.weight(1f)) {
-            androidx.compose.runtime.CompositionLocalProvider(
+            if (!seekable && playing) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(cs.surfaceVariant),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth((shownPos.toFloat() / maxOf(total, 1).toFloat()).coerceIn(0f, 1f))
+                            .height(4.dp)
+                            .background(cs.primary),
+                    )
+                }
+            }
+            if (seekable) androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr,
             ) {
                 androidx.compose.material3.Slider(
@@ -1131,7 +1177,7 @@ fun AudioPlayer(m: Media, modifier: Modifier) {
                 )
             }
             Text(
-                NoteMedia.fmtDuration(shownPos.toLong()) + " / " + NoteMedia.fmtDuration(total.toLong()),
+                if (!seekable && !playing) NoteMedia.fmtDuration(total.toLong()) else NoteMedia.fmtDuration(shownPos.toLong()) + " / " + NoteMedia.fmtDuration(total.toLong()),
                 color = cs.onSurfaceVariant,
                 fontSize = 11.5.sp,
                 modifier = Modifier.padding(start = 6.dp),
