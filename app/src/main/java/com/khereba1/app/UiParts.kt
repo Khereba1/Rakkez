@@ -157,7 +157,14 @@ fun HoldBtn(glyph: String, dir: Int, onStep: (Int) -> Unit, modifier: Modifier =
             },
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, fontSize = 22.sp, color = MaterialTheme.colorScheme.onSurface)
+        val tint = MaterialTheme.colorScheme.onSurface
+        if (glyph == "+") {
+            RkIcon(RkIc.PLUS, tint, size * 0.42f)
+        } else if (glyph == "\u2212" || glyph == "-") {
+            RkIcon(RkIc.MINUS, tint, size * 0.42f)
+        } else {
+            Text(glyph, fontSize = 22.sp, color = tint)
+        }
     }
 }
 

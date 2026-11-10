@@ -485,26 +485,22 @@ private fun CourseRow(vm: MainViewModel, c: Course, onEdit: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                "−",
-                color = cs.onSurface,
-                fontSize = 22.sp,
-                modifier = Modifier
+            Box(
+                Modifier
+                    .size(42.dp)
                     .clip(CircleShape)
                     .background(cs.surfaceVariant)
-                    .clickable { vm.stepCourse(c.id, -1) }
-                    .padding(horizontal = 18.dp, vertical = 4.dp),
-            )
-            Text(
-                "+",
-                color = cs.onPrimary,
-                fontSize = 22.sp,
-                modifier = Modifier
+                    .clickable { vm.stepCourse(c.id, -1) },
+                contentAlignment = Alignment.Center,
+            ) { RkIcon(RkIc.MINUS, cs.onSurface, 18.dp) }
+            Box(
+                Modifier
+                    .size(42.dp)
                     .clip(CircleShape)
                     .background(cs.primary)
-                    .clickable { vm.stepCourse(c.id, 1) }
-                    .padding(horizontal = 18.dp, vertical = 4.dp),
-            )
+                    .clickable { vm.stepCourse(c.id, 1) },
+                contentAlignment = Alignment.Center,
+            ) { RkIcon(RkIc.PLUS, cs.onPrimary, 18.dp) }
             Text(
                 stringResource(R.string.course_hint),
                 color = cs.onSurfaceVariant,

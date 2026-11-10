@@ -91,3 +91,6 @@ Never print, commit or ask for them, and never ask for the backup folder.
 ## fix24 (versionCode 25)
 - Default alert sound = marimba (pref key alert_sound2). Habit reminder channel `habit_remind_<tag>` uses the same sound with USAGE_NOTIFICATION (follows silent mode); only focus/break end uses USAGE_ALARM.
 - Video viewer: play icon in accent color; seek bar slightly lower.
+
+## fix25 (versionCode 26)
+- +/− buttons unified with the drawn icons: new RkIc.MINUS; HoldBtn renders icons for "+"/"−"; CourseRow steppers are 42dp circles with icons.

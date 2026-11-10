@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-enum class RkIc { CAMERA, VIDEO, MIC, PEN, FILE, PLAY, PAUSE, GALLERY, PLUS }
+enum class RkIc { CAMERA, VIDEO, MIC, PEN, FILE, PLAY, PAUSE, GALLERY, PLUS, MINUS }
 
 /** Small hand-drawn line icons, so every icon has the same weight and colour (no emoji). */
 @Composable
@@ -112,6 +112,9 @@ fun RkIcon(ic: RkIc, tint: Color, size: Dp = 22.dp) {
                 val pw = w * 0.136f
                 drawLine(tint, Offset(w * 0.5f, h * 0.12f), Offset(w * 0.5f, h * 0.88f), pw, StrokeCap.Round)
                 drawLine(tint, Offset(w * 0.12f, h * 0.5f), Offset(w * 0.88f, h * 0.5f), pw, StrokeCap.Round)
+            }
+            RkIc.MINUS -> {
+                drawLine(tint, Offset(w * 0.12f, h * 0.5f), Offset(w * 0.88f, h * 0.5f), w * 0.136f, StrokeCap.Round)
             }
             RkIc.GALLERY -> {
                 drawRoundRect(tint, Offset(w * 0.08f, h * 0.14f), Size(w * 0.84f, h * 0.72f), CornerRadius(w * 0.12f), style = st)
