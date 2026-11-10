@@ -89,7 +89,7 @@ private fun AddBar(hint: String, requester: FocusRequester, onAdd: (String) -> U
                 .clickable { submit() },
             contentAlignment = Alignment.Center,
         ) {
-            Text("+", color = cs.onPrimary, fontSize = 28.sp, fontWeight = FontWeight.Medium)
+            RkIcon(RkIc.PLUS, cs.onPrimary, 22.dp)
         }
     }
 }
