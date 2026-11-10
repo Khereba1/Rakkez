@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -81,7 +82,7 @@ fun NoteViewer(vm: MainViewModel, st: ViewerState) {
                             Modifier
                                 .panel(cs.surface, 24.dp)
                                 .padding(24.dp),
-                        ) { AudioPlayer(m, Modifier) }
+                        ) { AudioPlayer(m, Modifier.width(280.dp)) }
                     }
                     else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(

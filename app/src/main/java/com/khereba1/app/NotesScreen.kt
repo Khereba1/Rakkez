@@ -1008,9 +1008,13 @@ fun AudioPlayer(m: Media, modifier: Modifier) {
     val cs = MaterialTheme.colorScheme
     val ctx = LocalContext.current
     var playing by remember { mutableStateOf(false) }
+    var pos by remember { mutableStateOf(0) }
+    var total by remember { mutableStateOf(m.durMs.toInt()) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragPos by remember { mutableStateOf(0f) }
     val player = remember { arrayOfNulls<MediaPlayer>(1) }
 
-    fun stopPlay() {
+    fun release() {
         val p = player[0]
         player[0] = null
         playing = false
@@ -1028,37 +1032,110 @@ fun AudioPlayer(m: Media, modifier: Modifier) {
         }
     }
 
-    fun startPlay() {
-        try {
+    fun ensure(): MediaPlayer? {
+        val old = player[0]
+        if (old != null) return old
+        return try {
             val p = MediaPlayer()
             p.setDataSource(NoteStore.mediaFile(ctx, m).absolutePath)
             p.prepare()
-            p.setOnCompletionListener { stopPlay() }
-            p.start()
+            p.setOnCompletionListener { mp ->
+                playing = false
+                try {
+                    mp.seekTo(0)
+                } catch (e: Throwable) {
+                    // ignore
+                }
+                pos = 0
+            }
+            if (p.duration > 0) total = p.duration
             player[0] = p
-            playing = true
+            p
+        } catch (e: Throwable) {
+            AppLog.log("NOTES", "Could not open audio", e)
+            release()
+            null
+        }
+    }
+
+    fun toggle() {
+        val p = ensure() ?: return
+        try {
+            if (p.isPlaying) {
+                p.pause()
+                playing = false
+            } else {
+                p.start()
+                playing = true
+            }
         } catch (e: Throwable) {
             AppLog.log("NOTES", "Could not play audio", e)
-            stopPlay()
+            release()
         }
     }
 
     DisposableEffect(m.file) {
-        onDispose { stopPlay() }
+        onDispose { release() }
+    }
+    LaunchedEffect(playing) {
+        while (playing) {
+            val p = player[0]
+            if (p != null && !dragging) {
+                try {
+                    pos = p.currentPosition
+                } catch (e: Throwable) {
+                    // ignore
+                }
+            }
+            delay(200L)
+        }
     }
 
+    val shownPos = if (dragging) dragPos.toInt() else pos
     Row(modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(cs.primaryContainer)
-                .clickable { if (playing) stopPlay() else startPlay() },
+                .clickable { toggle() },
             contentAlignment = Alignment.Center,
         ) {
             RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, cs.onPrimaryContainer, 18.dp)
         }
-        Spacer(Modifier.size(10.dp))
-        Text(NoteMedia.fmtDuration(m.durMs), color = cs.onSurface, fontSize = 15.sp)
+        Spacer(Modifier.size(8.dp))
+        Column(Modifier.weight(1f)) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr,
+            ) {
+                androidx.compose.material3.Slider(
+                    value = shownPos.toFloat().coerceIn(0f, maxOf(total, 1).toFloat()),
+                    onValueChange = { v ->
+                        dragging = true
+                        dragPos = v
+                    },
+                    onValueChangeFinished = {
+                        val p = ensure()
+                        if (p != null) {
+                            try {
+                                p.seekTo(dragPos.toInt())
+                                pos = dragPos.toInt()
+                            } catch (e: Throwable) {
+                                // ignore
+                            }
+                        }
+                        dragging = false
+                    },
+                    valueRange = 0f..maxOf(total, 1).toFloat(),
+                    modifier = Modifier.height(28.dp),
+                )
+            }
+            Text(
+                NoteMedia.fmtDuration(shownPos.toLong()) + " / " + NoteMedia.fmtDuration(total.toLong()),
+                color = cs.onSurfaceVariant,
+                fontSize = 11.5.sp,
+                modifier = Modifier.padding(start = 6.dp),
+            )
+        }
     }
 }
