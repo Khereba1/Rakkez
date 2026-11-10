@@ -1,8 +1,10 @@
 package com.khereba1.app
 
 import android.net.Uri
-import android.widget.MediaController
 import android.widget.VideoView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -60,6 +62,7 @@ fun NoteViewer(vm: MainViewModel, st: ViewerState) {
     val pager = rememberPagerState(initialPage = st.start.coerceIn(0, total - 1)) { total }
     var menu by remember { mutableStateOf(false) }
     var zoomed by remember { mutableStateOf(false) }
+    var speed by remember { mutableStateOf(1f) }
     val cur = st.pages[pager.currentPage.coerceIn(0, total - 1)]
 
     Box(
@@ -76,13 +79,13 @@ fun NoteViewer(vm: MainViewModel, st: ViewerState) {
             } else {
                 when (m.kind) {
                     MK_IMAGE -> ImagePage(m) { z -> if (active) zoomed = z }
-                    MK_VIDEO -> VideoPage(m, active)
+                    MK_VIDEO -> VideoPage(m, active, speed)
                     MK_AUDIO -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Box(
                             Modifier
                                 .panel(cs.surface, 24.dp)
                                 .padding(24.dp),
-                        ) { AudioPlayer(m, Modifier.width(280.dp)) }
+                        ) { AudioPlayer(m, Modifier.width(280.dp), speed = speed) }
                     }
                     else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
@@ -148,6 +151,21 @@ fun NoteViewer(vm: MainViewModel, st: ViewerState) {
                                 NoteMedia.shareMedia(ctx, cm)
                             },
                         )
+                    }
+                    if (cm != null && (cm.kind == MK_AUDIO || cm.kind == MK_VIDEO)) {
+                        for (sp in listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        (if (sp == speed) "\u2713  " else "     ") + "\u00D7" + (if (sp == 0.75f) "0.75" else if (sp == 1.25f) "1.25" else sp.toString().removeSuffix(".0")),
+                                    )
+                                },
+                                onClick = {
+                                    speed = sp
+                                    menu = false
+                                },
+                            )
+                        }
                     }
                     if (st.grouped.isNotEmpty()) {
                         DropdownMenuItem(
@@ -255,45 +273,175 @@ private fun ImagePage(m: Media, onZoom: (Boolean) -> Unit) {
 }
 
 @Composable
-private fun VideoPage(m: Media, active: Boolean) {
+private fun VideoPage(m: Media, active: Boolean, speed: Float) {
     val ctx = LocalContext.current
     val path = NoteStore.mediaFile(ctx, m).absolutePath
-    val holder = remember { arrayOfNulls<VideoView>(1) }
+    val vv = remember { arrayOfNulls<VideoView>(1) }
+    val mpHolder = remember { arrayOfNulls<android.media.MediaPlayer>(1) }
+    var playing by remember { mutableStateOf(false) }
+    var pos by remember { mutableStateOf(0) }
+    var dur by remember { mutableStateOf(m.durMs.toInt()) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragPos by remember { mutableStateOf(0f) }
+    var ctl by remember { mutableStateOf(true) }
+
+    fun toggle() {
+        val v = vv[0] ?: return
+        try {
+            if (v.isPlaying) {
+                v.pause()
+                playing = false
+                ctl = true
+            } else {
+                v.start()
+                playing = true
+                val p = mpHolder[0]
+                if (p != null) setSpeed(p, speed)
+            }
+        } catch (e: Throwable) {
+            AppLog.log("NOTES", "Video toggle failed", e)
+        }
+    }
+
     DisposableEffect(m.file) {
         onDispose {
             try {
-                holder[0]?.stopPlayback()
+                vv[0]?.stopPlayback()
             } catch (e: Throwable) {
                 // ignore
             }
         }
     }
-    AndroidView(
-        factory = { c ->
-            val v = VideoView(c)
-            val mc = MediaController(c)
-            mc.setAnchorView(v)
-            v.setMediaController(mc)
-            v.setVideoURI(Uri.fromFile(java.io.File(path)))
-            v.setOnPreparedListener { v.seekTo(1) }
-            holder[0] = v
-            v
-        },
-        update = { v ->
-            if (active) {
-                try {
-                    if (!v.isPlaying) v.start()
-                } catch (e: Throwable) {
-                    // ignore
+    androidx.compose.runtime.LaunchedEffect(active) {
+        val v = vv[0]
+        if (v != null) {
+            try {
+                if (active) {
+                    v.start()
+                    playing = true
+                } else if (v.isPlaying) {
+                    v.pause()
+                    playing = false
                 }
-            } else {
+            } catch (e: Throwable) {
+                // ignore
+            }
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(speed, playing) {
+        val p = mpHolder[0]
+        if (p != null && playing) setSpeed(p, speed)
+    }
+    androidx.compose.runtime.LaunchedEffect(playing) {
+        while (playing) {
+            val v = vv[0]
+            if (v != null && !dragging) {
                 try {
-                    if (v.isPlaying) v.pause()
+                    val c = v.currentPosition
+                    if (c != pos) pos = c
                 } catch (e: Throwable) {
                     // ignore
                 }
             }
-        },
-        modifier = Modifier.fillMaxSize(),
-    )
+            androidx.compose.runtime.withFrameNanos { }
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(playing, ctl) {
+        if (playing && ctl) {
+            kotlinx.coroutines.delay(2500L)
+            ctl = false
+        }
+    }
+
+    val shownPos = if (dragging) dragPos.toInt() else pos
+    Box(Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = { c ->
+                val v = VideoView(c)
+                v.setVideoURI(Uri.fromFile(java.io.File(path)))
+                v.setOnPreparedListener { mp ->
+                    mpHolder[0] = mp
+                    if (v.duration > 0) dur = v.duration
+                    if (active) {
+                        v.start()
+                        playing = true
+                        setSpeed(mp, speed)
+                    } else {
+                        v.seekTo(1)
+                    }
+                }
+                v.setOnCompletionListener {
+                    playing = false
+                    pos = 0
+                    ctl = true
+                    try {
+                        v.seekTo(1)
+                    } catch (e: Throwable) {
+                        // ignore
+                    }
+                }
+                vv[0] = v
+                v
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                ) { ctl = !ctl },
+        )
+        AnimatedVisibility(
+            visible = ctl || !playing,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            Box(
+                Modifier
+                    .size(72.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(Color(0x99000000))
+                    .clickable { toggle() },
+                contentAlignment = Alignment.Center,
+            ) { RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, Color.White, 34.dp) }
+        }
+        AnimatedVisibility(
+            visible = ctl || !playing,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+            ) {
+                SeekBar(
+                    frac = shownPos.toFloat() / maxOf(dur, 1).toFloat(),
+                    onChange = { f ->
+                        dragging = true
+                        dragPos = f * maxOf(dur, 1).toFloat()
+                    },
+                    onDone = {
+                        try {
+                            vv[0]?.seekTo(dragPos.toInt())
+                            pos = dragPos.toInt()
+                        } catch (e: Throwable) {
+                            // ignore
+                        }
+                        dragging = false
+                    },
+                    track = Color(0x55FFFFFF),
+                    fill = Color.White,
+                )
+                Row(Modifier.fillMaxWidth()) {
+                    Text(NoteMedia.fmtDuration(shownPos.toLong()), color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text(NoteMedia.fmtDuration(dur.toLong()), color = Color.White, fontSize = 12.sp)
+                }
+            }
+        }
+    }
 }

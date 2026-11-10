@@ -19,6 +19,8 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -1059,7 +1061,7 @@ fun MediaRow(vm: MainViewModel, m: Media) {
 }
 
 @Composable
-fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true) {
+fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true, speed: Float = 1f) {
     val cs = MaterialTheme.colorScheme
     val ctx = LocalContext.current
     var playing by remember { mutableStateOf(false) }
@@ -1122,6 +1124,7 @@ fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true) {
             } else {
                 p.start()
                 playing = true
+                setSpeed(p, speed)
             }
         } catch (e: Throwable) {
             AppLog.log("NOTES", "Could not play audio", e)
@@ -1131,6 +1134,10 @@ fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true) {
 
     DisposableEffect(m.file) {
         onDispose { release() }
+    }
+    LaunchedEffect(speed, playing) {
+        val p = player[0]
+        if (p != null && playing) setSpeed(p, speed)
     }
     LaunchedEffect(playing) {
         while (playing) {
@@ -1178,16 +1185,14 @@ fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true) {
                     )
                 }
             }
-            if (seekable) androidx.compose.runtime.CompositionLocalProvider(
-                androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr,
-            ) {
-                androidx.compose.material3.Slider(
-                    value = shownPos.toFloat().coerceIn(0f, maxOf(total, 1).toFloat()),
-                    onValueChange = { v ->
+            if (seekable) {
+                SeekBar(
+                    frac = shownPos.toFloat() / maxOf(total, 1).toFloat(),
+                    onChange = { f ->
                         dragging = true
-                        dragPos = v
+                        dragPos = f * maxOf(total, 1).toFloat()
                     },
-                    onValueChangeFinished = {
+                    onDone = {
                         val p = ensure()
                         if (p != null) {
                             try {
@@ -1199,8 +1204,8 @@ fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true) {
                         }
                         dragging = false
                     },
-                    valueRange = 0f..maxOf(total, 1).toFloat(),
-                    modifier = Modifier.height(28.dp),
+                    track = cs.surfaceVariant,
+                    fill = cs.primary,
                 )
             }
             Text(
@@ -1209,6 +1214,56 @@ fun AudioPlayer(m: Media, modifier: Modifier, seekable: Boolean = true) {
                 fontSize = 11.5.sp,
                 modifier = Modifier.padding(start = 6.dp),
             )
+        }
+    }
+}
+
+/** Playback speed (only touches the player while it is playing, because changing it on a paused player can start it). */
+fun setSpeed(p: MediaPlayer, speed: Float) {
+    try {
+        p.playbackParams = android.media.PlaybackParams().setSpeed(speed)
+    } catch (e: Throwable) {
+        AppLog.log("NOTES", "Could not set speed", e)
+    }
+}
+
+/** A slim seek bar (always left-to-right) with a small thumb. [frac] is 0..1. */
+@Composable
+fun SeekBar(frac: Float, onChange: (Float) -> Unit, onDone: () -> Unit, track: Color, fill: Color, modifier: Modifier = Modifier) {
+    var w by remember { mutableStateOf(1f) }
+    val f = frac.coerceIn(0f, 1f)
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr,
+    ) {
+        Box(
+            modifier
+                .fillMaxWidth()
+                .height(30.dp)
+                .onSizeChanged { sz -> w = sz.width.toFloat().coerceAtLeast(1f) }
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { o ->
+                        onChange((o.x / w).coerceIn(0f, 1f))
+                        onDone()
+                    })
+                }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { o -> onChange((o.x / w).coerceIn(0f, 1f)) },
+                        onDragEnd = { onDone() },
+                        onDragCancel = { onDone() },
+                    ) { change, _ ->
+                        change.consume()
+                        onChange((change.position.x / w).coerceIn(0f, 1f))
+                    }
+                },
+        ) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val cy = size.height / 2f
+                val th = 4.dp.toPx()
+                drawLine(track, androidx.compose.ui.geometry.Offset(0f, cy), androidx.compose.ui.geometry.Offset(size.width, cy), th, androidx.compose.ui.graphics.StrokeCap.Round)
+                drawLine(fill, androidx.compose.ui.geometry.Offset(0f, cy), androidx.compose.ui.geometry.Offset(size.width * f, cy), th, androidx.compose.ui.graphics.StrokeCap.Round)
+                drawCircle(fill, 7.dp.toPx(), androidx.compose.ui.geometry.Offset(size.width * f, cy))
+            }
         }
     }
 }
