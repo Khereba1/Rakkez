@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+
 package com.khereba1.app
 
 import android.content.Context
@@ -107,8 +109,21 @@ fun appFontFamily(c: Context): FontFamily? = when (fontKey(c)) {
     else -> CairoFamily
 }
 
+private fun fixLines(t: androidx.compose.ui.text.TextStyle): androidx.compose.ui.text.TextStyle =
+    t.copy(lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+        androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+        androidx.compose.ui.text.style.LineHeightStyle.Trim.None,
+    ))
+
 private fun typographyFor(ff: FontFamily?): Typography {
-    val d = Typography()
+    val d0 = Typography()
+    val d = Typography(
+        displayLarge = fixLines(d0.displayLarge), displayMedium = fixLines(d0.displayMedium), displaySmall = fixLines(d0.displaySmall),
+        headlineLarge = fixLines(d0.headlineLarge), headlineMedium = fixLines(d0.headlineMedium), headlineSmall = fixLines(d0.headlineSmall),
+        titleLarge = fixLines(d0.titleLarge), titleMedium = fixLines(d0.titleMedium), titleSmall = fixLines(d0.titleSmall),
+        bodyLarge = fixLines(d0.bodyLarge), bodyMedium = fixLines(d0.bodyMedium), bodySmall = fixLines(d0.bodySmall),
+        labelLarge = fixLines(d0.labelLarge), labelMedium = fixLines(d0.labelMedium), labelSmall = fixLines(d0.labelSmall),
+    )
     if (ff == null) return d
     return Typography(
         displayLarge = d.displayLarge.copy(fontFamily = ff),

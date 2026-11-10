@@ -172,7 +172,9 @@ object NoteMedia {
 class Recorder(private val c: Context) {
     private var rec: MediaRecorder? = null
     private var file: File? = null
-    private var startAt = 0L
+    private var segStart = 0L
+    private var accum = 0L
+    private var paused = false
 
     private fun newRecorder(): MediaRecorder {
         return if (Build.VERSION.SDK_INT >= 31) MediaRecorder(c) else legacyRecorder()
@@ -195,7 +197,9 @@ class Recorder(private val c: Context) {
             r.start()
             rec = r
             file = f
-            startAt = System.currentTimeMillis()
+            segStart = System.currentTimeMillis()
+            accum = 0L
+            paused = false
             true
         } catch (e: Throwable) {
             AppLog.log("NOTES", "Could not start recording", e)
@@ -204,13 +208,39 @@ class Recorder(private val c: Context) {
         }
     }
 
+    fun elapsedMs(): Long = accum + (if (rec != null && !paused) System.currentTimeMillis() - segStart else 0L)
+
+    fun pause() {
+        val r = rec ?: return
+        if (paused) return
+        try {
+            r.pause()
+            accum += System.currentTimeMillis() - segStart
+            paused = true
+        } catch (e: Throwable) {
+            AppLog.log("NOTES", "Could not pause recording", e)
+        }
+    }
+
+    fun resume() {
+        val r = rec ?: return
+        if (!paused) return
+        try {
+            r.resume()
+            segStart = System.currentTimeMillis()
+            paused = false
+        } catch (e: Throwable) {
+            AppLog.log("NOTES", "Could not resume recording", e)
+        }
+    }
+
     /** Stops and returns the new attachment, or null if nothing usable was recorded. */
     fun stop(): Media? {
         val r = rec ?: return null
         val f = file
+        val dur = elapsedMs()
         rec = null
         file = null
-        val dur = System.currentTimeMillis() - startAt
         return try {
             r.stop()
             r.release()

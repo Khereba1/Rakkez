@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+
 package com.khereba1.app
 
 import android.Manifest
@@ -10,6 +12,13 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -92,6 +101,7 @@ fun NotesList(vm: MainViewModel) {
     var renameCol by remember { mutableStateOf(false) }
     var deleteCol by remember { mutableStateOf(false) }
     var showPlus by remember { mutableStateOf(false) }
+    var showVoice by remember { mutableStateOf(false) }
     var moveMenu by remember { mutableStateOf(false) }
     var confirmSel by remember { mutableStateOf(false) }
     var pendingCap by remember { mutableStateOf<File?>(null) }
@@ -124,6 +134,9 @@ fun NotesList(vm: MainViewModel) {
             showPlus = true
         }
     }
+    LaunchedEffect(vm.voiceRequest) {
+        if (vm.voiceRequest > 0) showVoice = true
+    }
     val selecting = vm.selected.isNotEmpty()
     BackHandler(enabled = selecting) { vm.clearSelection() }
 
@@ -150,52 +163,71 @@ fun NotesList(vm: MainViewModel) {
         if (selecting) {
             val selNotes = vm.notes.notes.filter { vm.selected.contains(it.id) }
             val anyGrouped = selNotes.any { it.groupId != 0L }
-            Row(
+            // a whole group counts as one unit: "group" only makes sense with at least two units
+            val units = selNotes.filter { it.groupId == 0L }.size + selNotes.filter { it.groupId != 0L }.map { it.groupId }.toSet().size
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 4.dp)
                     .panel(cs.primaryContainer, 22.dp)
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
             ) {
-                MiniBtn("\u2715") { vm.clearSelection() }
-                Text(
-                    stringResource(R.string.sel_count, vm.selected.size.toString()),
-                    color = cs.onPrimaryContainer,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 6.dp),
-                )
-                if (vm.selected.size >= 2) {
-                    TextButton(onClick = { vm.groupSelected() }) { Text(stringResource(R.string.grp_group)) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MiniBtn("\u2715") { vm.clearSelection() }
+                    Text(
+                        stringResource(R.string.sel_count, vm.selected.size.toString()),
+                        color = cs.onPrimaryContainer,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp),
+                    )
                 }
-                if (anyGrouped) {
-                    TextButton(onClick = { vm.ungroupSelected() }) { Text(stringResource(R.string.grp_ungroup)) }
-                }
-                Box {
-                    TextButton(onClick = { moveMenu = true }) { Text(stringResource(R.string.sel_move)) }
-                    DropdownMenu(expanded = moveMenu, onDismissRequest = { moveMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.notes_inbox)) },
-                            onClick = {
-                                moveMenu = false
-                                vm.moveSelected(0L)
-                            },
-                        )
-                        for (col in vm.notes.collections) {
-                            DropdownMenuItem(
-                                text = { Text(col.name) },
-                                onClick = {
-                                    moveMenu = false
-                                    vm.moveSelected(col.id)
-                                },
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (units >= 2) {
+                        SelAction(stringResource(R.string.grp_group), cs.onPrimaryContainer) { vm.groupSelected() }
+                    }
+                    if (anyGrouped) {
+                        SelAction(stringResource(R.string.grp_ungroup), cs.onPrimaryContainer) { vm.ungroupSelected() }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text(
+                                stringResource(R.string.sel_move),
+                                color = cs.onPrimaryContainer,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable { moveMenu = true }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
                             )
                         }
+                        DropdownMenu(expanded = moveMenu, onDismissRequest = { moveMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.notes_inbox)) },
+                                onClick = {
+                                    moveMenu = false
+                                    vm.moveSelected(0L)
+                                },
+                            )
+                            for (col in vm.notes.collections) {
+                                DropdownMenuItem(
+                                    text = { Text(col.name) },
+                                    onClick = {
+                                        moveMenu = false
+                                        vm.moveSelected(col.id)
+                                    },
+                                )
+                            }
+                        }
                     }
+                    SelAction(stringResource(R.string.delete), cs.error) { confirmSel = true }
                 }
-                TextButton(onClick = { confirmSel = true }) { Text(stringResource(R.string.delete), color = cs.error) }
             }
         }
 
@@ -317,7 +349,7 @@ fun NotesList(vm: MainViewModel) {
         },
         onVoice = {
             showPlus = false
-            vm.newNote(2)
+            showVoice = true
         },
         onPhoto = {
             showPlus = false
@@ -358,6 +390,7 @@ fun NotesList(vm: MainViewModel) {
             }
         },
     )
+    VoiceSheet(visible = showVoice, onClose = { showVoice = false }, onSaved = { m -> vm.addStandaloneMedia(m) })
     if (manage && currentCol != null) {
         AlertDialog(
             onDismissRequest = { manage = false },
@@ -392,6 +425,58 @@ fun NotesList(vm: MainViewModel) {
     }
 }
 
+@Composable
+private fun RowScope.SelAction(label: String, color: Color, onClick: () -> Unit) {
+    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+        Text(
+            label,
+            color = color,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+    }
+}
+
+/** Large cover of an image or a video frame, filling its box. */
+@Composable
+fun MediaCover(m: Media, modifier: Modifier, target: Int) {
+    val cs = MaterialTheme.colorScheme
+    val ctx = LocalContext.current
+    val file = NoteStore.mediaFile(ctx, m)
+    val bmp = produceState<ImageBitmap?>(null, m.file) {
+        value = withContext(Dispatchers.IO) {
+            val b = when (m.kind) {
+                MK_IMAGE -> NoteMedia.decodeImage(file, target)
+                MK_VIDEO -> NoteMedia.videoFrame(file)
+                else -> null
+            }
+            b?.asImageBitmap()
+        }
+    }
+    Box(modifier.background(cs.surfaceVariant), contentAlignment = Alignment.Center) {
+        val img = bmp.value
+        if (img != null) {
+            Image(bitmap = img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        }
+        if (m.kind == MK_VIDEO) {
+            Box(
+                Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x99000000)),
+                contentAlignment = Alignment.Center,
+            ) { RkIcon(RkIc.PLAY, Color.White, 22.dp) }
+        }
+        if (m.kind == MK_AUDIO) RkIcon(RkIc.MIC, cs.onSurfaceVariant, 28.dp)
+        if (m.kind == MK_FILE) RkIcon(RkIc.FILE, cs.onSurfaceVariant, 28.dp)
+    }
+}
+
 /** One list entry: a single note, or a group of notes shown as one card. */
 @Composable
 fun NoteCard(vm: MainViewModel, entry: List<Note>) {
@@ -402,69 +487,146 @@ fun NoteCard(vm: MainViewModel, entry: List<Note>) {
     val ids = entry.map { it.id }
     val isSel = ids.all { vm.selected.contains(it) }
     val selecting = vm.selected.isNotEmpty()
-    val head = NoteTools.headline(n)
-    val prev = NoteTools.preview(n)
-    val url = NoteTools.firstUrl(n.body)
     val hasText = NoteTools.hasText(n)
+    val mediaOnly = !grouped && !hasText && n.media.isNotEmpty()
+    val first = n.media.firstOrNull()
+    val shape = RoundedCornerShape(20.dp)
     val dateText = remember(n.updatedAt) { SimpleDateFormat("d MMM", dateLocale()).format(Date(n.updatedAt)) }
     val colName = vm.notes.collections.firstOrNull { it.id == n.collectionId }?.name ?: ""
-    Column(
+    val dateLine = dateText + (if (colName.isNotEmpty()) " \u00B7 " + colName else "")
+
+    Box(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .panel(if (isSel) cs.primaryContainer else cs.surface, 20.dp)
+            .clip(shape)
+            .then(if (isSel) Modifier.border(3.dp, cs.primary, shape) else Modifier)
             .pointerInput(ids, selecting) {
                 detectTapGestures(
                     onLongPress = { vm.toggleSelect(ids) },
                     onTap = {
                         if (selecting) {
                             vm.toggleSelect(ids)
-                        } else if (grouped) {
+                        } else if (grouped || !hasText) {
                             vm.openViewerFor(entry)
-                        } else if (hasText) {
-                            vm.openNote(n)
                         } else {
-                            vm.openViewerFor(entry)
+                            vm.openNote(n)
                         }
                     },
                 )
-            }
-            .padding(14.dp),
+            },
     ) {
         if (grouped) {
-            Text(
-                "\u25A3 " + stringResource(R.string.grp_title, entry.size.toString()),
-                color = cs.primary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Row(
+            // collage of the members, with a counter
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .background(if (isSel) cs.primaryContainer else cs.surface)
+                    .padding(12.dp),
             ) {
-                for (x in entry.take(4)) {
-                    val m = x.media.firstOrNull()
-                    if (m != null) {
-                        MediaThumb(m, 64)
-                    } else {
-                        Box(
-                            Modifier
-                                .size(64.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(cs.surfaceVariant)
-                                .padding(6.dp),
-                        ) {
-                            Text(NoteTools.headline(x), color = cs.onSurfaceVariant, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                    for (x in entry.take(4)) {
+                        val m = x.media.firstOrNull()
+                        val tile = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                        if (m != null && (m.kind == MK_IMAGE || m.kind == MK_VIDEO)) {
+                            MediaCover(m, tile, 300)
+                        } else {
+                            Box(tile.background(cs.surfaceVariant).padding(6.dp), contentAlignment = Alignment.Center) {
+                                if (m != null) {
+                                    RkIcon(if (m.kind == MK_AUDIO) RkIc.MIC else RkIc.FILE, cs.onSurfaceVariant, 26.dp)
+                                } else {
+                                    Text(NoteTools.headline(x), color = cs.onSurfaceVariant, fontSize = 11.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
                         }
                     }
                 }
-                if (entry.size > 4) Text("+" + (entry.size - 4).toString(), color = cs.onSurfaceVariant, fontSize = 14.sp)
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.grp_title, entry.size.toString()),
+                        color = cs.primary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(dateLine, color = cs.onSurfaceVariant, fontSize = 11.5.sp)
+                }
+            }
+        } else if (mediaOnly && first != null && (first.kind == MK_IMAGE || first.kind == MK_VIDEO)) {
+            // photo / video: a big picture card
+            Box(Modifier.fillMaxWidth()) {
+                MediaCover(first, Modifier.fillMaxWidth().height(190.dp), 1000)
+                if (first.kind == MK_VIDEO && first.durMs > 0L) {
+                    Text(
+                        NoteMedia.fmtDuration(first.durMs),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(10.dp)
+                            .background(Color(0x99000000), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 7.dp, vertical = 2.dp),
+                    )
+                }
+                Text(
+                    dateLine + (if (n.media.size > 1) " \u00B7 +" + (n.media.size - 1).toString() else ""),
+                    color = Color.White,
+                    fontSize = 11.5.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(10.dp)
+                        .background(Color(0x99000000), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                )
+            }
+        } else if (mediaOnly && first != null && first.kind == MK_AUDIO) {
+            // voice note: a compact player row
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(if (isSel) cs.primaryContainer else cs.surface)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AudioPlayer(first, Modifier.weight(1f))
+                Text(dateLine, color = cs.onSurfaceVariant, fontSize = 11.5.sp, modifier = Modifier.padding(start = 10.dp))
+            }
+        } else if (mediaOnly && first != null) {
+            // a file
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(if (isSel) cs.primaryContainer else cs.surface)
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.padding(end = 12.dp)) { RkIcon(RkIc.FILE, cs.onSurfaceVariant, 28.dp) }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (first.label.isEmpty()) first.file else first.label,
+                        color = cs.onSurface,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(dateLine, color = cs.onSurfaceVariant, fontSize = 11.5.sp, modifier = Modifier.padding(top = 2.dp))
+                }
             }
         } else {
-            if (hasText) {
+            // a text note (with or without media inside it)
+            val head = NoteTools.headline(n)
+            val prev = NoteTools.preview(n)
+            val url = NoteTools.firstUrl(n.body)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(if (isSel) cs.primaryContainer else cs.surface)
+                    .padding(14.dp),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         if (head.isEmpty()) stringResource(R.string.note_untitled) else head,
@@ -473,16 +635,17 @@ fun NoteCard(vm: MainViewModel, entry: List<Note>) {
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        style = LocalTextStyle.current.copy(textDirection = TextDirection.Content),
                         modifier = Modifier.weight(1f),
                     )
                     if (n.pinned) Text("\u2605", color = cs.primary, fontSize = 16.sp)
                 }
                 if (prev.isNotEmpty()) {
-                    Text(prev, color = cs.onSurfaceVariant, fontSize = 14.sp, lineHeight = 21.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                    Text(prev, color = cs.onSurfaceVariant, fontSize = 14.sp, lineHeight = 21.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, style = LocalTextStyle.current.copy(textDirection = TextDirection.Content), modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
                 }
                 if (url != null) {
                     Text(
-                        "\uD83D\uDD17 " + NoteTools.domain(url),
+                        "\u2197 " + NoteTools.domain(url),
                         color = cs.primary,
                         fontSize = 13.sp,
                         maxLines = 1,
@@ -491,27 +654,32 @@ fun NoteCard(vm: MainViewModel, entry: List<Note>) {
                             .clickable { NoteMedia.openUrl(ctx, url) },
                     )
                 }
-            }
-            if (n.media.isNotEmpty()) {
-                val big = if (hasText) 64 else 96
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = if (hasText) 8.dp else 0.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    for (m in n.media.take(3)) MediaThumb(m, big)
-                    if (n.media.size > 3) Text("+" + (n.media.size - 3).toString(), color = cs.onSurfaceVariant, fontSize = 14.sp)
+                if (n.media.isNotEmpty()) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        for (m in n.media.take(3)) MediaThumb(m, 56)
+                        if (n.media.size > 3) Text("+" + (n.media.size - 3).toString(), color = cs.onSurfaceVariant, fontSize = 14.sp)
+                    }
                 }
+                Text(dateLine, color = cs.onSurfaceVariant, fontSize = 11.5.sp, modifier = Modifier.padding(top = 8.dp))
             }
         }
-        Text(
-            dateText + (if (colName.isNotEmpty()) " \u00B7 " + colName else ""),
-            color = cs.onSurfaceVariant,
-            fontSize = 11.5.sp,
-            modifier = Modifier.padding(top = 8.dp),
-        )
+        if (isSel) {
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(cs.primary),
+                contentAlignment = Alignment.Center,
+            ) { Text("\u2713", color = cs.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+        }
     }
 }
 
@@ -543,9 +711,12 @@ fun MediaThumb(m: Media, size: Int) {
             Image(bitmap = img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
         when (m.kind) {
-            MK_VIDEO -> Text("▶", color = cs.onSurface, fontSize = 20.sp)
-            MK_AUDIO -> Text("🎤\n" + NoteMedia.fmtDuration(m.durMs), color = cs.onSurface, fontSize = 12.sp)
-            MK_FILE -> Text("📎", color = cs.onSurface, fontSize = 22.sp)
+            MK_VIDEO -> RkIcon(RkIc.PLAY, cs.onSurface, 22.dp)
+            MK_AUDIO -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                RkIcon(RkIc.MIC, cs.onSurface, 20.dp)
+                Text(NoteMedia.fmtDuration(m.durMs), color = cs.onSurface, fontSize = 11.sp)
+            }
+            MK_FILE -> RkIcon(RkIc.FILE, cs.onSurface, 22.dp)
             else -> {}
         }
     }
@@ -564,28 +735,11 @@ fun NoteEditor(vm: MainViewModel, n: Note) {
     var confirmDelete by remember { mutableStateOf(false) }
     var newCollection by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<File?>(null) }
-    var recording by remember { mutableStateOf(false) }
-    var elapsed by remember { mutableStateOf(0L) }
-    val recorder = remember { Recorder(ctx) }
+    var showVoice by remember { mutableStateOf(false) }
     val url = NoteTools.firstUrl(n.body)
 
     fun toast(id: Int) {
         Toast.makeText(ctx, LocaleHelperText(ctx, id), Toast.LENGTH_SHORT).show()
-    }
-
-    fun startRecording() {
-        if (recorder.start()) {
-            recording = true
-            elapsed = 0L
-        } else {
-            toast(R.string.note_record_failed)
-        }
-    }
-
-    fun stopRecording() {
-        recording = false
-        val m = recorder.stop()
-        if (m != null) vm.addDraftMedia(m)
     }
 
     val attach = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
@@ -600,9 +754,6 @@ fun NoteEditor(vm: MainViewModel, n: Note) {
         val f = pending
         pending = null
         if (ok && f != null) vm.addCapture(f, MK_VIDEO, "video/mp4") else f?.delete()
-    }
-    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) startRecording() else toast(R.string.note_mic_denied)
     }
 
     fun takePhoto() {
@@ -628,15 +779,7 @@ fun NoteEditor(vm: MainViewModel, n: Note) {
     }
 
     fun startVoice() {
-        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            startRecording()
-        } else {
-            try {
-                micPermission.launch(Manifest.permission.RECORD_AUDIO)
-            } catch (e: Throwable) {
-                toast(R.string.note_mic_denied)
-            }
-        }
+        showVoice = true
     }
 
     LaunchedEffect(Unit) {
@@ -649,17 +792,6 @@ fun NoteEditor(vm: MainViewModel, n: Note) {
             else -> {}
         }
     }
-    LaunchedEffect(recording) {
-        val start = System.currentTimeMillis()
-        while (recording) {
-            elapsed = System.currentTimeMillis() - start
-            delay(250L)
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose { recorder.cancel() }
-    }
-
     val colName = vm.notes.collections.firstOrNull { it.id == n.collectionId }?.name ?: stringResource(R.string.notes_inbox)
 
     Column(Modifier.fillMaxSize()) {
@@ -736,12 +868,19 @@ fun NoteEditor(vm: MainViewModel, n: Note) {
         ) {
             Box(Modifier.fillMaxWidth()) {
                 if (n.title.isEmpty()) {
-                    Text(stringResource(R.string.note_title_hint), color = cs.onSurfaceVariant, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.note_title_hint), color = cs.onSurfaceVariant, fontSize = 22.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold)
                 }
                 BasicTextField(
                     value = n.title,
                     onValueChange = { v -> vm.editDraftText(v, n.body) },
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = cs.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Bold),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = cs.onBackground,
+                        fontSize = 22.sp,
+                        lineHeight = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        textDirection = TextDirection.Content,
+                        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+                    ),
                     cursorBrush = SolidColor(cs.primary),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -749,19 +888,25 @@ fun NoteEditor(vm: MainViewModel, n: Note) {
             Spacer(Modifier.height(10.dp))
             Box(Modifier.fillMaxWidth().heightIn(min = 140.dp)) {
                 if (n.body.isEmpty()) {
-                    Text(stringResource(R.string.note_body_hint), color = cs.onSurfaceVariant, fontSize = 16.sp)
+                    Text(stringResource(R.string.note_body_hint), color = cs.onSurfaceVariant, fontSize = 16.sp, lineHeight = 26.sp)
                 }
                 BasicTextField(
                     value = n.body,
                     onValueChange = { v -> vm.editDraftText(n.title, v) },
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = cs.onSurface, fontSize = 16.sp, lineHeight = 25.sp),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = cs.onSurface,
+                        fontSize = 16.sp,
+                        lineHeight = 26.sp,
+                        textDirection = TextDirection.Content,
+                        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+                    ),
                     cursorBrush = SolidColor(cs.primary),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (url != null) {
                 Text(
-                    "🔗 " + NoteTools.domain(url),
+                    "\u2197 " + NoteTools.domain(url),
                     color = cs.primary,
                     fontSize = 14.sp,
                     modifier = Modifier
@@ -775,48 +920,25 @@ fun NoteEditor(vm: MainViewModel, n: Note) {
             Spacer(Modifier.height(16.dp))
         }
 
-        if (recording) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-                    .panel(cs.surface, 22.dp)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("●", color = cs.error, fontSize = 16.sp)
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    stringResource(R.string.note_recording) + "  " + NoteMedia.fmtDuration(elapsed),
-                    color = cs.onSurface,
-                    fontSize = 15.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                Button(
-                    onClick = { stopRecording() },
-                    colors = ButtonDefaults.buttonColors(containerColor = cs.primary, contentColor = cs.onPrimary),
-                ) { Text(stringResource(R.string.note_stop_save), fontWeight = FontWeight.Bold) }
-            }
-        } else {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                SegPill("🎤 " + stringResource(R.string.cap_voice), false, { startVoice() })
-                SegPill("📷 " + stringResource(R.string.cap_photo), false, { takePhoto() })
-                SegPill("🎥 " + stringResource(R.string.cap_video), false, { takeVideo() })
-                SegPill("📎 " + stringResource(R.string.cap_file), false, {
-                    try {
-                        attach.launch("*/*")
-                    } catch (e: Throwable) {
-                        AppLog.log("NOTES", "Picker failed", e)
-                    }
-                })
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            IconPill(RkIc.MIC, stringResource(R.string.cap_voice)) { startVoice() }
+            IconPill(RkIc.CAMERA, stringResource(R.string.cap_photo)) { takePhoto() }
+            IconPill(RkIc.VIDEO, stringResource(R.string.cap_video)) { takeVideo() }
+            IconPill(RkIc.FILE, stringResource(R.string.cap_file)) {
+                try {
+                    attach.launch("*/*")
+                } catch (e: Throwable) {
+                    AppLog.log("NOTES", "Picker failed", e)
+                }
             }
         }
     }
+    VoiceSheet(visible = showVoice, onClose = { showVoice = false }, onSaved = { m -> vm.addDraftMedia(m) })
 
     if (newCollection) {
         NameDialog(stringResource(R.string.notes_new_collection), "", { newCollection = false }, { name ->
@@ -854,8 +976,9 @@ fun MediaRow(vm: MainViewModel, m: Media) {
         when (m.kind) {
             MK_AUDIO -> AudioPlayer(m, Modifier.weight(1f))
             MK_FILE -> {
+                Box(Modifier.padding(start = 6.dp)) { RkIcon(RkIc.FILE, cs.onSurfaceVariant, 22.dp) }
                 Text(
-                    "📎 " + (if (m.label.isEmpty()) m.file else m.label),
+                    (if (m.label.isEmpty()) m.file else m.label),
                     color = cs.onSurface,
                     fontSize = 14.sp,
                     maxLines = 1,
@@ -933,9 +1056,9 @@ fun AudioPlayer(m: Media, modifier: Modifier) {
                 .clickable { if (playing) stopPlay() else startPlay() },
             contentAlignment = Alignment.Center,
         ) {
-            Text(if (playing) "■" else "▶", color = cs.onPrimaryContainer, fontSize = 16.sp)
+            RkIcon(if (playing) RkIc.PAUSE else RkIc.PLAY, cs.onPrimaryContainer, 18.dp)
         }
         Spacer(Modifier.size(10.dp))
-        Text("🎤 " + NoteMedia.fmtDuration(m.durMs), color = cs.onSurface, fontSize = 15.sp)
+        Text(NoteMedia.fmtDuration(m.durMs), color = cs.onSurface, fontSize = 15.sp)
     }
 }

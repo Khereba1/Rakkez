@@ -12,6 +12,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -55,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -257,11 +259,11 @@ fun AddSheet(
                             .background(cs.surfaceVariant)
                             .padding(horizontal = 6.dp, vertical = 8.dp),
                     ) {
-                        ActionTile("📷", stringResource(R.string.cap_photo), onPhoto)
-                        ActionTile("🎥", stringResource(R.string.cap_video), onVideo)
-                        ActionTile("🎤", stringResource(R.string.cap_voice), onVoice)
-                        ActionTile("✍", stringResource(R.string.sheet_text), onText)
-                        ActionTile("📎", stringResource(R.string.cap_file), onFile)
+                        ActionTile(RkIc.CAMERA, stringResource(R.string.cap_photo), onPhoto)
+                        ActionTile(RkIc.VIDEO, stringResource(R.string.cap_video), onVideo)
+                        ActionTile(RkIc.MIC, stringResource(R.string.cap_voice), onVoice)
+                        ActionTile(RkIc.PEN, stringResource(R.string.sheet_text), onText)
+                        ActionTile(RkIc.FILE, stringResource(R.string.cap_file), onFile)
                     }
                 }
             }
@@ -270,7 +272,7 @@ fun AddSheet(
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.ActionTile(icon: String, label: String, onClick: () -> Unit) {
+private fun androidx.compose.foundation.layout.RowScope.ActionTile(icon: RkIc, label: String, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column(
         Modifier
@@ -280,8 +282,8 @@ private fun androidx.compose.foundation.layout.RowScope.ActionTile(icon: String,
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(icon, fontSize = 24.sp)
-        Text(label, color = cs.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
+        RkIcon(icon, cs.onSurface, 26.dp)
+        Text(label, color = cs.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
     }
 }
 
@@ -310,16 +312,17 @@ private fun DeviceThumb(d: DevMedia, order: Int, onClick: () -> Unit) {
             Image(bitmap = img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
         if (d.video) {
-            Text(
-                "▶ " + NoteMedia.fmtDuration(d.durMs),
-                color = Color.White,
-                fontSize = 11.sp,
-                modifier = Modifier
+            Row(
+                Modifier
                     .align(Alignment.BottomStart)
                     .padding(4.dp)
                     .background(Color(0x88000000), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 5.dp, vertical = 1.dp),
-            )
+                    .padding(horizontal = 5.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RkIcon(RkIc.PLAY, Color.White, 10.dp)
+                Text(" " + NoteMedia.fmtDuration(d.durMs), color = Color.White, fontSize = 11.sp)
+            }
         }
         Box(
             Modifier
@@ -332,6 +335,175 @@ private fun DeviceThumb(d: DevMedia, order: Int, onClick: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             if (order >= 0) Text((order + 1).toString(), color = cs.onPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+
+/** Bottom drawer with a big timer for voice notes (pause / resume / save). The result goes to [onSaved]. */
+@Composable
+fun VoiceSheet(visible: Boolean, onClose: () -> Unit, onSaved: (Media) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val ctx = LocalContext.current
+    val recorder = remember { Recorder(ctx) }
+    var recording by remember { mutableStateOf(false) }
+    var paused by remember { mutableStateOf(false) }
+    var elapsed by remember { mutableStateOf(0L) }
+
+    fun toast(id: Int) {
+        android.widget.Toast.makeText(ctx, LocaleHelper.wrap(ctx).getString(id), android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    fun begin() {
+        if (recorder.start()) {
+            recording = true
+            paused = false
+            elapsed = 0L
+        } else {
+            toast(R.string.note_record_failed)
+            onClose()
+        }
+    }
+
+    fun cancelRec() {
+        recorder.cancel()
+        recording = false
+        paused = false
+        onClose()
+    }
+
+    val mic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            begin()
+        } else {
+            toast(R.string.note_mic_denied)
+            onClose()
+        }
+    }
+    BackHandler(enabled = visible) { cancelRec() }
+    androidx.compose.runtime.LaunchedEffect(visible) {
+        if (visible) {
+            if (ctx.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                begin()
+            } else {
+                try {
+                    mic.launch(Manifest.permission.RECORD_AUDIO)
+                } catch (e: Throwable) {
+                    toast(R.string.note_mic_denied)
+                    onClose()
+                }
+            }
+        } else if (recording) {
+            recorder.cancel()
+            recording = false
+            paused = false
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(recording) {
+        while (recording) {
+            elapsed = recorder.elapsedMs()
+            kotlinx.coroutines.delay(200L)
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { recorder.cancel() }
+    }
+    val tr = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
+    val pulseRaw by tr.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.16f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(800),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "pulseScale",
+    )
+    val pulse = if (paused) 1f else pulseRaw
+
+    Box(Modifier.fillMaxSize()) {
+        AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color(0x99000000))
+                    .clickable(enabled = false) { },
+            )
+        }
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically { it },
+            exit = slideOutVertically { it },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                    .background(cs.surface)
+                    .padding(horizontal = 24.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(stringResource(R.string.rec_title), color = cs.onSurface, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Box(
+                    Modifier
+                        .padding(vertical = 22.dp)
+                        .size(112.dp)
+                        .graphicsLayer(scaleX = pulse, scaleY = pulse)
+                        .clip(CircleShape)
+                        .background((if (paused) cs.onSurfaceVariant else cs.error).copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(78.dp)
+                            .clip(CircleShape)
+                            .background(if (paused) cs.onSurfaceVariant else cs.error)
+                            .clickable(enabled = recording) {
+                                if (paused) {
+                                    recorder.resume()
+                                    paused = false
+                                } else {
+                                    recorder.pause()
+                                    paused = true
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) { RkIcon(if (paused) RkIc.MIC else RkIc.PAUSE, Color.White, 34.dp) }
+                }
+                Text(
+                    NoteMedia.fmtDuration(elapsed),
+                    color = cs.onSurface,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    stringResource(if (paused) R.string.rec_paused else R.string.rec_hint),
+                    color = cs.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = { cancelRec() }) { Text(stringResource(R.string.cancel)) }
+                    Button(
+                        onClick = {
+                            val m = recorder.stop()
+                            recording = false
+                            paused = false
+                            if (m != null) onSaved(m)
+                            onClose()
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = recording,
+                        colors = ButtonDefaults.buttonColors(containerColor = cs.primary, contentColor = cs.onPrimary),
+                    ) { Text(stringResource(R.string.rec_save), fontWeight = FontWeight.Bold) }
+                }
+            }
         }
     }
 }

@@ -62,6 +62,8 @@ The stable signing key lives in GitHub Secrets (KEYSTORE_BASE64, KEYSTORE_PASSWO
 Never print, commit or ask for them, and never ask for the backup folder.
 `bash share_zip.sh` builds a clean `<folder>-for-AI.zip` (no keys, env files, build output or APKs) for sharing.
 
+## fix12 (v13 / 2.2): RkIcons.kt (drawn icons, no emoji), selection bar w/ units logic, VoiceSheet(visible,onClose,onSaved) with pause/resume used by list and editor, TextDirection.Content in editor, title lineHeight/cursor fix, nav items 50dp concentric, typography lineHeightStyle center.
+
 ## fix11 (v12 / 2.1): missed-days prompt for build habits (Habit.res = settled-through day; answer kept/slipped), 9pm HabitReminder (AlarmManager inexact, rescheduled on app open, not on reboot), settings switch.
 
 ## fix10 (v11 / 2.0): habits redesign (build 21d / quit 90d, today-only tick, relapse, achieved section), courses new-first + finished section, VoiceSheet drawer, per-kind note cards (photo/video cover, audio player row, file row, group collage).

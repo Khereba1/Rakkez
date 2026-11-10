@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -197,9 +198,9 @@ fun NavBar(current: Int, onSelect: (Int) -> Unit, onPlus: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(30.dp))
+            .clip(RoundedCornerShape(32.dp))
             .background(cs.surface)
-            .padding(5.dp),
+            .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         NavItem(Modifier.weight(1f), R.string.tab_tasks, current == 0) { onSelect(0) }
@@ -230,10 +231,11 @@ private fun NavItem(modifier: Modifier, label: Int, selected: Boolean, onClick: 
     val cs = MaterialTheme.colorScheme
     Box(
         modifier
-            .clip(RoundedCornerShape(26.dp))
+            .padding(horizontal = 2.dp)
+            .height(50.dp)
+            .clip(CircleShape)
             .background(if (selected) cs.primaryContainer else cs.surface)
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(

@@ -90,7 +90,8 @@ fun NoteViewer(vm: MainViewModel, st: ViewerState) {
                                 .padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text("📎 " + (if (m.label.isEmpty()) m.file else m.label), color = cs.onSurface, fontSize = 15.sp)
+                            RkIcon(RkIc.FILE, cs.onSurface, 34.dp)
+                            Text(if (m.label.isEmpty()) m.file else m.label, color = cs.onSurface, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
                             TextButton(onClick = { NoteMedia.open(ctx, m) }) { Text(stringResource(R.string.viewer_open_with)) }
                         }
                     }
