@@ -386,4 +386,10 @@
     <string name="snd_marimba">ماريمبا</string>
     <string name="snd_system">النظام</string>
     <string name="snd_custom">من الجهاز</string>
+    <string name="run_channel_name">الجلسة الشغّالة</string>
+    <string name="run_focus_title">جلسة التركيز شغّالة</string>
+    <string name="run_break_title">الراحة شغّالة</string>
+    <string name="run_focus_text">خليك مركّز، الوقت المتبقي قدامك</string>
+    <string name="run_break_text">استمتع بالراحة</string>
+    <string name="run_paused_text">متوقفة مؤقتًا</string>
 </resources>

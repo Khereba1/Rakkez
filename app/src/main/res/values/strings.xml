@@ -387,4 +387,10 @@ Create one to track what you receive, deliver, and get paid.</string>
     <string name="snd_marimba">Marimba</string>
     <string name="snd_system">System</string>
     <string name="snd_custom">From device</string>
+    <string name="run_channel_name">Running session</string>
+    <string name="run_focus_title">Focus session running</string>
+    <string name="run_break_title">Break running</string>
+    <string name="run_focus_text">Stay focused, time left is shown here</string>
+    <string name="run_break_text">Enjoy your break</string>
+    <string name="run_paused_text">Paused</string>
 </resources>

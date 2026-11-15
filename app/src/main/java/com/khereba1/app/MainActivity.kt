@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         Foreground.on = true
         Alerts.cancel(this)
+        FocusService.refresh(this)
         vm.reloadNotes()
         vm.startTicking()
     }

@@ -12,6 +12,10 @@
         android:name="android.permission.SCHEDULE_EXACT_ALARM"
         android:maxSdkVersion="32" />
 
+    <!-- Permanent notification with the countdown while a focus session / break is running. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <!-- Voice notes. The camera is used through the phone's own camera app, so no camera permission is needed. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -94,6 +98,15 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_notes_info" />
         </receiver>
+
+        <service
+            android:name=".FocusService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="focus_timer_countdown" />
+        </service>
 
         <receiver
             android:name=".TimerReceiver"

@@ -105,6 +105,7 @@ object Engine {
         val total = minutes.coerceIn(1, 600) * 60_000L
         save(c, s.copy(phase = PH_FOCUS, running = true, endAt = now + total, remainingMs = total, totalMs = total, extra = extra))
         schedule(c, now + total)
+        FocusService.refresh(c)
     }
 
     @Synchronized
@@ -128,6 +129,7 @@ object Engine {
             )
         )
         schedule(c, now + total)
+        FocusService.refresh(c)
     }
 
     @Synchronized
@@ -137,6 +139,7 @@ object Engine {
         val rem = s.remaining(System.currentTimeMillis())
         save(c, s.copy(running = false, remainingMs = if (rem < 1000L) 1000L else rem))
         cancel(c)
+        FocusService.refresh(c)
     }
 
     @Synchronized
@@ -146,6 +149,7 @@ object Engine {
         val now = System.currentTimeMillis()
         save(c, s.copy(running = true, endAt = now + s.remainingMs))
         schedule(c, now + s.remainingMs)
+        FocusService.refresh(c)
     }
 
     /** Ends the current period early. With keep = true a focus period of at least one minute is recorded (as partial). */
@@ -159,6 +163,7 @@ object Engine {
         }
         cancel(c)
         save(c, idle(s))
+        FocusService.refresh(c)
     }
 
     /** "That's enough" after a finished session. */
@@ -166,6 +171,7 @@ object Engine {
     fun finishAsk(c: Context) {
         cancel(c)
         save(c, idle(load(c)))
+        FocusService.refresh(c)
     }
 
     /** Called by the UI tick, the alarm receiver and the widgets. Idempotent. */
@@ -188,9 +194,11 @@ object Engine {
                     cycle = if (s.extra) s.cycle else s.cycle + 1,
                 )
             )
+            FocusService.refresh(c)
             return EV_FOCUS_DONE
         }
         save(c, idle(s))
+        FocusService.refresh(c)
         return EV_BREAK_DONE
     }
 
@@ -245,20 +253,32 @@ object Engine {
 /** Fires when a period ends, even if the app process was killed. */
 class TimerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val pr = goAsync()
         try {
             val ev = Engine.sync(context)
             if (ev != Engine.EV_NONE) {
-                if (Foreground.on) Alerts.ding(context) else Alerts.notifyDone(context, ev)
+                // We play the sound ourselves (alarm stream + audio focus) so it is heard over other apps' audio.
+                Alerts.ding(context) { pr.finish() }
+                if (!Foreground.on) Alerts.notifyDone(context, ev)
                 Widgets.updateAll(context)
+            } else {
+                pr.finish()
             }
         } catch (e: Throwable) {
             AppLog.log("TIMER", "Receiver failed", e)
+            try {
+                pr.finish()
+            } catch (e2: Throwable) {
+                // ignore
+            }
         }
     }
 }
 
 object Alerts {
     const val CHANNEL = "timer_done"
+    const val DONE_CHANNEL = "timer_done_v3"
+    const val RUN_CHANNEL = "timer_running"
     private const val NOTIF_ID = 1001
     val SOUND_KEYS = listOf("bell", "chime", "beep", "marimba", "system", "custom")
 
@@ -298,28 +318,32 @@ object Alerts {
         return if (k == "custom") "custom_" + customUri(c).hashCode().toString().replace('-', 'm') else k
     }
 
-    private fun channelId(c: Context): String = CHANNEL + "_" + soundTag(c)
-
     private fun alarmAttrs(): android.media.AudioAttributes =
         android.media.AudioAttributes.Builder()
             .setUsage(android.media.AudioAttributes.USAGE_ALARM)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
 
+    /**
+     * Two quiet channels: the "done" one has no sound of its own (we play the sound ourselves, see [play]),
+     * and the "running" one is the silent, always-present notification shown during a session.
+     */
     fun ensureChannel(c: Context) {
         try {
             val nm = c.getSystemService(NotificationManager::class.java)
-            val id = channelId(c)
-            // channel settings cannot change after creation, so each sound gets its own channel
             for (old in nm.notificationChannels) {
-                if (old.id.startsWith(CHANNEL) && old.id != id) nm.deleteNotificationChannel(old.id)
+                if (old.id.startsWith(CHANNEL) && old.id != DONE_CHANNEL) nm.deleteNotificationChannel(old.id)
             }
-            val ch = NotificationChannel(id, tr(c, R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
-            ch.description = tr(c, R.string.channel_desc)
-            ch.enableVibration(true)
-            // alarm usage: plays even when the phone is on silent / vibrate
-            ch.setSound(soundUri(c), alarmAttrs())
-            nm.createNotificationChannel(ch)
+            val done = NotificationChannel(DONE_CHANNEL, tr(c, R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
+            done.description = tr(c, R.string.channel_desc)
+            done.enableVibration(true)
+            done.setSound(null, null)
+            nm.createNotificationChannel(done)
+            val run = NotificationChannel(RUN_CHANNEL, tr(c, R.string.run_channel_name), NotificationManager.IMPORTANCE_LOW)
+            run.setShowBadge(false)
+            run.setSound(null, null)
+            run.enableVibration(false)
+            nm.createNotificationChannel(run)
         } catch (e: Throwable) {
             AppLog.log("ALERT", "Channel failed", e)
         }
@@ -338,7 +362,7 @@ object Alerts {
             open.putExtra("tab", 1)
             open.data = android.net.Uri.parse("rakkez://open/notification")
             val pi = PendingIntent.getActivity(c, 11, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val n = NotificationCompat.Builder(c, channelId(c))
+            val n = NotificationCompat.Builder(c, DONE_CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle(title)
                 .setContentText(text)
@@ -361,26 +385,66 @@ object Alerts {
         }
     }
 
-    private var current: android.media.Ringtone? = null
+    private var player: android.media.MediaPlayer? = null
 
-    /** Plays the chosen sound on the alarm stream (audible on silent). */
-    fun play(c: Context) {
-        try {
-            current?.stop()
-            val r = RingtoneManager.getRingtone(c, soundUri(c))
-            if (r != null) {
-                r.audioAttributes = alarmAttrs()
-                r.play()
-                current = r
+    /**
+     * Plays the chosen sound on the alarm stream (audible on silent) and asks for transient audio focus,
+     * so music or videos from other apps are lowered while it plays. [onEnd] is called once, when it finishes.
+     */
+    fun play(c: Context, onEnd: () -> Unit = {}) {
+        val done = java.util.concurrent.atomic.AtomicBoolean(false)
+        val am = c.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+        val focusReq = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            .setAudioAttributes(alarmAttrs())
+            .setOnAudioFocusChangeListener { }
+            .build()
+        var mp: android.media.MediaPlayer? = null
+        val finish: () -> Unit = {
+            if (done.compareAndSet(false, true)) {
+                try {
+                    mp?.release()
+                } catch (e: Throwable) {
+                    // ignore
+                }
+                if (player === mp) player = null
+                try {
+                    am.abandonAudioFocusRequest(focusReq)
+                } catch (e: Throwable) {
+                    // ignore
+                }
+                onEnd()
             }
+        }
+        try {
+            try {
+                player?.release()
+            } catch (e: Throwable) {
+                // ignore
+            }
+            am.requestAudioFocus(focusReq)
+            val p = android.media.MediaPlayer()
+            mp = p
+            player = p
+            p.setAudioAttributes(alarmAttrs())
+            p.setDataSource(c, soundUri(c))
+            p.setOnCompletionListener { finish() }
+            p.setOnErrorListener { _, _, _ ->
+                finish()
+                true
+            }
+            p.setOnPreparedListener { it.start() }
+            p.prepareAsync()
+            // safety net so a receiver is never held for long
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ finish() }, 8000L)
         } catch (e: Throwable) {
             AppLog.log("ALERT", "Sound failed", e)
+            finish()
         }
     }
 
-    /** In-app sound + vibration when a period ends while the app is open. */
-    fun ding(c: Context) {
-        play(c)
+    /** Sound + vibration when a period ends. */
+    fun ding(c: Context, onEnd: () -> Unit = {}) {
+        play(c, onEnd)
         try {
             val v: Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
                 (c.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
