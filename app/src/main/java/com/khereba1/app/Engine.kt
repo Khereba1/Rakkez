@@ -260,15 +260,7 @@ class TimerReceiver : BroadcastReceiver() {
         }
         val pr = goAsync()
         try {
-            val ev = Engine.sync(context)
-            if (ev != Engine.EV_NONE) {
-                // We play the sound ourselves (alarm stream + audio focus) so it is heard over other apps' audio.
-                Alerts.ding(context) { pr.finish() }
-                if (!Foreground.on) Alerts.notifyDone(context, ev)
-                Widgets.updateAll(context)
-            } else {
-                pr.finish()
-            }
+            Alerts.handleEnd(context) { pr.finish() }
         } catch (e: Throwable) {
             AppLog.log("TIMER", "Receiver failed", e)
             try {
@@ -394,6 +386,22 @@ object Alerts {
     private var player: android.media.MediaPlayer? = null
 
     /**
+     * Called when a period may have ended: by the alarm receiver, by the running-session service, and by the UI tick.
+     * Engine.sync is idempotent, so only the first caller gets the event and rings.
+     */
+    fun handleEnd(c: Context, onEnd: () -> Unit = {}) {
+        val ev = Engine.sync(c)
+        if (ev != Engine.EV_NONE) {
+            // We play the sound ourselves (alarm stream + audio focus) so it is heard over other apps' audio.
+            ding(c, onEnd)
+            if (!Foreground.on) notifyDone(c, ev)
+            Widgets.updateAll(c)
+        } else {
+            onEnd()
+        }
+    }
+
+    /**
      * Plays the chosen sound on the alarm stream (audible on silent) and asks for transient audio focus,
      * so music or videos from other apps are lowered while it plays. [onEnd] is called once, when it finishes.
      */
@@ -432,6 +440,7 @@ object Alerts {
             mp = p
             player = p
             p.setAudioAttributes(alarmAttrs())
+            p.setWakeMode(c.applicationContext, android.os.PowerManager.PARTIAL_WAKE_LOCK)
             p.setDataSource(c, soundUri(c))
             p.setOnCompletionListener { finish() }
             p.setOnErrorListener { _, _, _ ->

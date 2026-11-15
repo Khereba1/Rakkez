@@ -281,6 +281,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Alerts.ding(app)
             Alerts.cancel(app)
             refreshAll(true)
+        } else {
+            // the alarm receiver or the running-session service may have already handled the end: pick up the new state
+            val cur = Engine.load(app)
+            if (cur.phase != timer.phase || cur.running != timer.running) refreshAll(true)
         }
     }
 

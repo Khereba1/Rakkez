@@ -101,3 +101,6 @@ Never print, commit or ask for them, and never ask for the backup folder.
 
 ## fix27 (versionCode 28)
 - Running-session notification: channel `timer_running_v2` (IMPORTANCE_DEFAULT, no sound/vibration) so it sits in the main notification section instead of "Silent"; deleteIntent (TimerReceiver ACTION_REPOST) re-posts it if the user swipes it away (Android 14 lets users dismiss FGS notifications).
+
+## fix28 (versionCode 29)
+- Reliability: FocusService now also ends the period itself (Handler + PARTIAL_WAKE_LOCK until endAt) via `Alerts.handleEnd` (shared with TimerReceiver; Engine.sync is idempotent). Fixes: swiped from recents → alarm not delivered → notification counted negative and no ring. Added WAKE_LOCK permission; MediaPlayer.setWakeMode. VM tick re-reads Engine state if another component handled the end.

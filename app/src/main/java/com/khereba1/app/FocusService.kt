@@ -16,7 +16,53 @@ import androidx.core.content.ContextCompat
  * which makes the end-of-session sound and notification reliable.
  */
 class FocusService : Service() {
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var wake: android.os.PowerManager.WakeLock? = null
+    private val endRunnable = Runnable {
+        try {
+            Alerts.handleEnd(applicationContext)
+        } catch (e: Throwable) {
+            AppLog.log("FOCUS", "End handling failed", e)
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * The service itself rings when the period ends (a wake lock keeps the CPU awake until then), so the end does not
+     * depend only on the system alarm, which some phones drop when the app is swiped away.
+     */
+    private fun armEnd(s: TimerState) {
+        handler.removeCallbacks(endRunnable)
+        releaseWake()
+        if (!s.running) return
+        val delay = (s.endAt - System.currentTimeMillis()).coerceAtLeast(0L)
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            val wl = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "rakkez:focus")
+            wl.setReferenceCounted(false)
+            wl.acquire(delay + 60_000L)
+            wake = wl
+        } catch (e: Throwable) {
+            AppLog.log("FOCUS", "Wake lock failed", e)
+        }
+        handler.postDelayed(endRunnable, delay + 200L)
+    }
+
+    private fun releaseWake() {
+        try {
+            wake?.let { if (it.isHeld) it.release() }
+        } catch (e: Throwable) {
+            // ignore
+        }
+        wake = null
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(endRunnable)
+        releaseWake()
+        super.onDestroy()
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val s = Engine.load(this)
@@ -34,6 +80,7 @@ class FocusService : Service() {
             } else {
                 startForeground(NOTIF_ID, n)
             }
+            armEnd(s)
         } catch (e: Throwable) {
             AppLog.log("FOCUS", "startForeground failed", e)
             stopSelf()
