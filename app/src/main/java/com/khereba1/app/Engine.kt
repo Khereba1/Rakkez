@@ -253,6 +253,11 @@ object Engine {
 /** Fires when a period ends, even if the app process was killed. */
 class TimerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == FocusService.ACTION_REPOST) {
+            // the user swiped the permanent notification away: put it back (only if a session is still running)
+            FocusService.refresh(context)
+            return
+        }
         val pr = goAsync()
         try {
             val ev = Engine.sync(context)
@@ -278,7 +283,7 @@ class TimerReceiver : BroadcastReceiver() {
 object Alerts {
     const val CHANNEL = "timer_done"
     const val DONE_CHANNEL = "timer_done_v3"
-    const val RUN_CHANNEL = "timer_running"
+    const val RUN_CHANNEL = "timer_running_v2"
     private const val NOTIF_ID = 1001
     val SOUND_KEYS = listOf("bell", "chime", "beep", "marimba", "system", "custom")
 
@@ -333,13 +338,14 @@ object Alerts {
             val nm = c.getSystemService(NotificationManager::class.java)
             for (old in nm.notificationChannels) {
                 if (old.id.startsWith(CHANNEL) && old.id != DONE_CHANNEL) nm.deleteNotificationChannel(old.id)
+                if (old.id.startsWith("timer_running") && old.id != RUN_CHANNEL) nm.deleteNotificationChannel(old.id)
             }
             val done = NotificationChannel(DONE_CHANNEL, tr(c, R.string.channel_name), NotificationManager.IMPORTANCE_HIGH)
             done.description = tr(c, R.string.channel_desc)
             done.enableVibration(true)
             done.setSound(null, null)
             nm.createNotificationChannel(done)
-            val run = NotificationChannel(RUN_CHANNEL, tr(c, R.string.run_channel_name), NotificationManager.IMPORTANCE_LOW)
+            val run = NotificationChannel(RUN_CHANNEL, tr(c, R.string.run_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
             run.setShowBadge(false)
             run.setSound(null, null)
             run.enableVibration(false)

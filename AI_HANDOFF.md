@@ -98,3 +98,6 @@ Never print, commit or ask for them, and never ask for the backup folder.
 ## fix26 (versionCode 27)
 - FocusService (foreground, type specialUse): permanent, non-dismissable notification with live countdown (chronometer countdown, `when = endAt`) while focus/break is running or paused; `FocusService.refresh(c)` is called from every Engine state change and MainActivity.onStart. Falls back to a plain ongoing notification if the service start is refused.
 - End-of-period sound is now played by the app itself (`Alerts.play`: MediaPlayer, USAGE_ALARM, transient-may-duck audio focus) from TimerReceiver (goAsync) / VM tick; done notification channel `timer_done_v3` has no sound of its own (avoids double sound).
+
+## fix27 (versionCode 28)
+- Running-session notification: channel `timer_running_v2` (IMPORTANCE_DEFAULT, no sound/vibration) so it sits in the main notification section instead of "Silent"; deleteIntent (TimerReceiver ACTION_REPOST) re-posts it if the user swipes it away (Android 14 lets users dismiss FGS notifications).

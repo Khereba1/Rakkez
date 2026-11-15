@@ -43,6 +43,7 @@ class FocusService : Service() {
 
     companion object {
         const val NOTIF_ID = 1003
+        const val ACTION_REPOST = "com.khereba1.rakkez.REPOST_RUNNING"
 
         fun isActive(s: TimerState): Boolean = s.phase >= PH_FOCUS && s.phase <= PH_LONG
 
@@ -77,11 +78,16 @@ class FocusService : Service() {
             open.putExtra("tab", 1)
             open.data = android.net.Uri.parse("rakkez://open/running")
             val pi = PendingIntent.getActivity(c, 12, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val del = Intent(c, TimerReceiver::class.java)
+            del.action = ACTION_REPOST
+            val delPi = PendingIntent.getBroadcast(c, 13, del, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val b = NotificationCompat.Builder(c, Alerts.RUN_CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle(title)
                 .setContentIntent(pi)
                 .setOngoing(true)
+                .setDeleteIntent(delPi)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setOnlyAlertOnce(true)
                 .setSilent(true)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
